@@ -22,23 +22,16 @@
 
 package ipLock;
 
-public enum WorkerExitCode {
+public enum WorkerBreakpoint {
 
-    SUCCESS(0),
+    BEFORE_LOCK,
 
-    CONCURRENT_ACCESS_ERROR(1),
+    AFTER_LOCK,
 
-    TRY_LOCK_FAILED(2),
+    MUTEX_AREA,
 
-    BREAKPOINT_TIMEOUT(3);
+    BEFORE_UNLOCK,
 
-    private int code;
+    AFTER_UNLOCK;
 
-    WorkerExitCode(int code) {
-        this.code = code;
-    }
-
-    public int getCode() {
-        return code;
-    }
 }
