@@ -22,6 +22,8 @@
 
 package ipLock;
 
+import org.apache.commons.lang.ArrayUtils;
+import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -70,10 +72,13 @@ public class Worker {
         boolean useLock = Boolean.valueOf(System.getenv().get("IPL_USE_LOCK"));
         boolean tryLock = Boolean.valueOf(System.getenv().get("IPL_TRY_LOCK"));
         boolean skipUnlock = Boolean.valueOf(System.getenv().get("IPL_SKIP_UNLOCK"));
-        if (System.getenv().containsKey("IPL_BREAKPOINT")) {
-            WorkerBreakpoint breakpoint = WorkerBreakpoint.valueOf(System.getenv().get("IPL_BREAKPOINT"));
-            breakpoints.add(breakpoint);
-            LOGGER.info("will stop at breakpoint {}", breakpoint);
+        if (System.getenv().containsKey("IPL_BREAKPOINTS")) {
+            String[] breakpointNames = StringUtils.split(System.getenv().get("IPL_BREAKPOINTS"), ':');
+            for (String name : breakpointNames) {
+                WorkerBreakpoint breakpoint = WorkerBreakpoint.valueOf(name);
+                breakpoints.add(breakpoint);
+            }
+            LOGGER.info("will stop at breakpoints {}", ArrayUtils.toString(breakpointNames));
         }
 
         IpLock ipLock = new IpLock(syncFile);

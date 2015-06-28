@@ -118,7 +118,7 @@ public class IpLockTest {
     public void testWorkerStepControl() throws IOException,
             InterruptedException {
         ProcessBuilder worker = createWorker(0, 100);
-        activateBreakpoint(worker, WorkerBreakpoint.BEFORE_LOCK);
+        activateBreakpoints(worker, WorkerBreakpoint.BEFORE_LOCK);
 
         Process workerProcess = worker.start();
 
@@ -205,8 +205,13 @@ public class IpLockTest {
         return pb;
     }
 
-    private void activateBreakpoint(ProcessBuilder pb, WorkerBreakpoint breakpoint) {
-        pb.environment().put("IPL_BREAKPOINT", breakpoint.name());
+    private void activateBreakpoints(ProcessBuilder pb, WorkerBreakpoint... breakpoints) {
+        List<String> nameList = new ArrayList<>();
+        for (WorkerBreakpoint breakpoint : breakpoints) {
+            nameList.add(breakpoint.name());
+        }
+
+        pb.environment().put("IPL_BREAKPOINTS", StringUtils.join(nameList, ':'));
     }
 
     private static String determineJavaExecutablePath() throws IOException {
