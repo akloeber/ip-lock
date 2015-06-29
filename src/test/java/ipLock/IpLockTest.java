@@ -38,15 +38,13 @@ import org.junit.Test;
 
 public class IpLockTest {
 
-    private static String javaExecutablePath;
-    private static String javaClasspath;
     private static File sharedResource;
     private static File syncFile;
 
+    private SignalServer signalServer;
+
     @BeforeClass
     public static void setupClass() throws IOException {
-        javaExecutablePath = determineJavaExecutablePath();
-        javaClasspath = determineClasspath();
         sharedResource = Paths.get(System.getProperty("java.io.tmpdir"),
                 "ip-lock.shared").toFile();
         syncFile = Paths.get(System.getProperty("java.io.tmpdir"),
@@ -61,16 +59,18 @@ public class IpLockTest {
         // make sure everything is clean before starting new test
         sharedResource.delete();
         syncFile.delete();
+
+        signalServer = new SignalServer();
     }
 
     @Test(expected = AssertionError.class)
     public void testLockingFailure() throws IOException,
             InterruptedException {
-        List<ProcessBuilder> workers = createWorkers(3);
-        for (ProcessBuilder worker : workers) {
-            worker.environment().put("IPL_USE_LOCK", Boolean.FALSE.toString());
+        List<WorkerProcessBuilder> workerBuilders = createWorkerBuilders(3);
+        for (WorkerProcessBuilder workerBuilder : workerBuilders) {
+            workerBuilder.useLock(false);
         }
-        List<Process> processes = startWorkers(workers);
+        List<Process> processes = startWorkers(workerBuilders);
 
         waitForProcesses(processes);
         assertExitCode(processes, WorkerExitCode.SUCCESS);
@@ -79,8 +79,8 @@ public class IpLockTest {
     @Test
     public void testLockingSuccess() throws IOException,
             InterruptedException {
-        List<ProcessBuilder> workers = createWorkers(3);
-        List<Process> processes = startWorkers(workers);
+        List<WorkerProcessBuilder> workerBuilders = createWorkerBuilders(3);
+        List<Process> processes = startWorkers(workerBuilders);
 
         waitForProcesses(processes);
         assertExitCode(processes, WorkerExitCode.SUCCESS);
@@ -89,10 +89,10 @@ public class IpLockTest {
     @Test
     public void testTryLockSuccess() throws IOException,
             InterruptedException {
-        ProcessBuilder tryLockWorker = createWorker(1, 10);
-        tryLockWorker.environment().put("IPL_TRY_LOCK", Boolean.TRUE.toString());
+        WorkerProcessBuilder tryLockWorkerBuilder = createWorkerBuilder(1, 10);
+        tryLockWorkerBuilder.tryLock(true);
 
-        Process tryLockWorkerProcess = tryLockWorker.start();
+        Process tryLockWorkerProcess = tryLockWorkerBuilder.start();
         waitForProcesses(tryLockWorkerProcess);
 
         assertExitCode(tryLockWorkerProcess, WorkerExitCode.SUCCESS);
@@ -101,13 +101,13 @@ public class IpLockTest {
     @Test
     public void testTryLockFailure() throws IOException,
             InterruptedException {
-        ProcessBuilder blockingWorker = createWorker(0, 100);
-        ProcessBuilder tryLockWorker = createWorker(1, 10);
-        tryLockWorker.environment().put("IPL_TRY_LOCK", Boolean.TRUE.toString());
+        WorkerProcessBuilder blockingWorkerBuilder = createWorkerBuilder(0, 100);
+        WorkerProcessBuilder tryLockWorkerBuilder = createWorkerBuilder(1, 10);
+        tryLockWorkerBuilder.tryLock(true);
 
-        Process blockingWorkerProcess = blockingWorker.start();
+        Process blockingWorkerProcess = blockingWorkerBuilder.start();
         Thread.sleep(50);
-        Process tryLockWorkerProcess = tryLockWorker.start();
+        Process tryLockWorkerProcess = tryLockWorkerBuilder.start();
         waitForProcesses(blockingWorkerProcess, tryLockWorkerProcess);
 
         assertExitCode(blockingWorkerProcess, WorkerExitCode.SUCCESS);
@@ -117,10 +117,10 @@ public class IpLockTest {
     @Test
     public void testWorkerStepControl() throws IOException,
             InterruptedException {
-        ProcessBuilder worker = createWorker(0, 100);
-        activateBreakpoints(worker, WorkerBreakpoint.BEFORE_LOCK);
+        WorkerProcessBuilder workerBuilder = createWorkerBuilder(0, 100)
+                .activateBreakpoints(WorkerBreakpoint.BEFORE_LOCK);
 
-        Process workerProcess = worker.start();
+        Process workerProcess = workerBuilder.start();
 
         waitForProcesses(workerProcess);
 
@@ -130,11 +130,11 @@ public class IpLockTest {
     @Test
     public void testAutomaticUnlockWhenJvmStops() throws IOException,
             InterruptedException {
-        ProcessBuilder blockingWorker = createWorker(0, 100);
-        blockingWorker.environment().put("IPL_SKIP_UNLOCK", Boolean.TRUE.toString());
-        ProcessBuilder blockingLockWorker = createWorker(1, 10);
+        WorkerProcessBuilder blockingWorkerBuilder = createWorkerBuilder(0, 100);
+        blockingWorkerBuilder.skipUnlock(true);
+        WorkerProcessBuilder blockingLockWorker = createWorkerBuilder(1, 10);
 
-        Process blockingWorkerProcess = blockingWorker.start();
+        Process blockingWorkerProcess = blockingWorkerBuilder.start();
         Thread.sleep(50);
         Process tryLockWorkerProcess = blockingLockWorker.start();
         waitForProcesses(blockingWorkerProcess, tryLockWorkerProcess);
@@ -165,75 +165,41 @@ public class IpLockTest {
         assertEquals(exitCode.getCode(), workerProcess.exitValue());
     }
 
-    private List<ProcessBuilder> createWorkers(int count) {
-        List<ProcessBuilder> result = new ArrayList<>(count);
+    private List<WorkerProcessBuilder> createWorkerBuilders(int count) {
+        List<WorkerProcessBuilder> result = new ArrayList<>(count);
 
         for (int i = 0; i < count; i++) {
-            result.add(createWorker(i, 10));
+            result.add(createWorkerBuilder(i, 10));
         }
 
         return result;
     }
 
-    private List<Process> startWorkers(List<ProcessBuilder> workers)
-            throws IOException {
-        List<Process> result = new ArrayList<>(workers.size());
+    public static WorkerProcessBuilder createWorkerBuilder(int id, long workDurationMs) {
+        WorkerProcessBuilder builder = WorkerProcessBuilder.builder(id);
+        builder
+                .workDurationMs(workDurationMs)
+                .resourcePath(sharedResource.getAbsolutePath())
+                .syncFilePath(syncFile.getAbsolutePath())
+                .useLock(true)
+                .tryLock(false);
 
-        for (ProcessBuilder pb : workers) {
-            result.add(pb.start());
-        }
-
-        return result;
+        return builder;
     }
 
-    private List<Process> startWorkers(ProcessBuilder... workers)
+    private List<Process> startWorkers(WorkerProcessBuilder... workers)
             throws IOException {
         return startWorkers(Arrays.asList(workers));
     }
 
-    private ProcessBuilder createWorker(int id, int workDurationMs) {
-        ProcessBuilder pb = new ProcessBuilder(javaExecutablePath,
-                "-classpath", javaClasspath, Worker.class.getName());
-        pb.inheritIO();
-        pb.environment().put("IPL_ID", Integer.toString(id));
-        pb.environment().put("IPL_WORK_DURATION_MS", Integer.toString(workDurationMs));
-        pb.environment().put("IPL_RESOURCE_PATH", sharedResource.getAbsolutePath());
-        pb.environment().put("IPL_SYNC_FILE_PATH", syncFile.getAbsolutePath());
-        pb.environment().put("IPL_USE_LOCK", Boolean.TRUE.toString());
-        pb.environment().put("IPL_TRY_LOCK", Boolean.FALSE.toString());
+    private List<Process> startWorkers(List<WorkerProcessBuilder> workers)
+            throws IOException {
+        List<Process> result = new ArrayList<>(workers.size());
 
-        return pb;
-    }
-
-    private void activateBreakpoints(ProcessBuilder pb, WorkerBreakpoint... breakpoints) {
-        List<String> nameList = new ArrayList<>();
-        for (WorkerBreakpoint breakpoint : breakpoints) {
-            nameList.add(breakpoint.name());
+        for (WorkerProcessBuilder worker : workers) {
+            result.add(worker.start());
         }
 
-        pb.environment().put("IPL_BREAKPOINTS", StringUtils.join(nameList, ':'));
-    }
-
-    private static String determineJavaExecutablePath() throws IOException {
-        File javaHome = new File(System.getProperty("java.home"));
-
-        Collection<File> files = FileUtils.listFiles(javaHome,
-                new NameFileFilter("java"), new NameFileFilter("bin"));
-
-        if (files.isEmpty()) {
-            throw new RuntimeException(
-                    "No java executable found at java home '" + javaHome + "'");
-        }
-        if (files.size() > 1) {
-            throw new RuntimeException(
-                    "Multiple java executables found at java home '" + javaHome
-                            + "': " + StringUtils.join(files, "; "));
-        }
-
-        return Collections.min(files).getAbsolutePath();
-    }
-
-    private static String determineClasspath() {
-        return System.getProperty("java.class.path");
+        return result;
     }
 }
