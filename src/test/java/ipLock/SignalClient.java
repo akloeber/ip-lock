@@ -56,8 +56,8 @@ public class SignalClient {
         channel = b.connect("localhost", port).sync().channel();
     }
 
-    public void stop() {
-        workerGroup.shutdownGracefully();
+    public void stop() throws InterruptedException {
+        workerGroup.shutdownGracefully().sync();
     }
 
     public void send(Signal sig) throws InterruptedException {
