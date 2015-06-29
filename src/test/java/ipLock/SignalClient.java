@@ -29,17 +29,21 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.string.StringEncoder;
 import io.netty.util.CharsetUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Created by aske on 29.06.15.
  */
 public class SignalClient {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(SignalClient.class);
+
     private EventLoopGroup workerGroup;
 
     Channel channel;
 
-    public void start(int port) throws InterruptedException {
+    public void connect(int port) throws InterruptedException {
         workerGroup = new NioEventLoopGroup();
 
         Bootstrap b = new Bootstrap();
@@ -53,11 +57,14 @@ public class SignalClient {
             }
         });
 
-        channel = b.connect("localhost", port).sync().channel();
+        String host = "localhost";
+        channel = b.connect(host, port).sync().channel();
+        LOGGER.info("connected to signal server at tcp://{}:{}", host, port);
     }
 
-    public void stop() throws InterruptedException {
+    public void disconnect() throws InterruptedException {
         workerGroup.shutdownGracefully().sync();
+        LOGGER.info("disconnected from signal server");
     }
 
     public void send(Signal sig) throws InterruptedException {
@@ -66,10 +73,10 @@ public class SignalClient {
 
     public static void main(String[] args) throws InterruptedException {
         SignalClient client = new SignalClient();
-        client.start(8080);
+        client.connect(8080);
 
         client.send(new Signal(SignalCode.CONNECT));
 
-        client.stop();
+        client.disconnect();
     }
 }

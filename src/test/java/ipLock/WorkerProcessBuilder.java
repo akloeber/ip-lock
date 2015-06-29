@@ -53,6 +53,11 @@ public class WorkerProcessBuilder {
         pb.environment().put("IPL_ID", id.toString());
     }
 
+    public WorkerProcessBuilder signalServerPort(Integer port) {
+        pb.environment().put("IPL_SIGNAL_SERVER_PORT", port.toString());
+        return this;
+    }
+
     public WorkerProcessBuilder tryLock(Boolean tryLock) {
         pb.environment().put("IPL_TRY_LOCK", tryLock.toString());
         return this;

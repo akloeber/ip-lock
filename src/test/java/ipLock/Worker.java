@@ -34,9 +34,6 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * The Class Worker.
@@ -80,6 +77,11 @@ public class Worker {
             }
             LOGGER.info("will stop at breakpoints {}", ArrayUtils.toString(breakpointNames));
         }
+        int port = Integer.valueOf(System.getenv().get("IPL_SIGNAL_SERVER_PORT"));
+
+        SignalClient client = new SignalClient();
+        client.connect(port);
+        client.send(new Signal(SignalCode.CONNECT));
 
         IpLock ipLock = new IpLock(syncFile);
 
@@ -132,6 +134,8 @@ public class Worker {
                 ipLock.unlock();
                 breakpoint(WorkerBreakpoint.AFTER_UNLOCK);
             }
+
+            client.disconnect();
         }
     }
 

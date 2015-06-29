@@ -47,6 +47,8 @@ public class SignalServer {
 
     private static final int MAX_LINE_LENGTH = 80;
 
+    private boolean running = false;
+
     private class SignalServerHandler extends SimpleChannelInboundHandler<Signal> {
 
         @Override
@@ -67,35 +69,52 @@ public class SignalServer {
     private EventLoopGroup workerGroup;
 
     public void start(int port) throws InterruptedException {
-        bossGroup = new NioEventLoopGroup();
-        workerGroup = new NioEventLoopGroup();
+        synchronized (this) {
+            if (running) {
+                throw new IllegalStateException("signal server already running");
+            }
 
-        ServerBootstrap b = new ServerBootstrap();
-        b.group(bossGroup, workerGroup)
-            .channel(NioServerSocketChannel.class)
-            .childHandler(new ChannelInitializer<SocketChannel>() {
+            bossGroup = new NioEventLoopGroup();
+            workerGroup = new NioEventLoopGroup();
 
-                @Override
-                public void initChannel(SocketChannel ch) throws Exception {
-                    ch.pipeline().addLast(
-                        new LineBasedFrameDecoder(MAX_LINE_LENGTH),
-                        new StringDecoder(CharsetUtil.UTF_8),
-                        new SignalDecoder(),
-                        new SignalServerHandler()
-                    );
-                }
+            ServerBootstrap b = new ServerBootstrap();
+            b.group(bossGroup, workerGroup)
+                    .channel(NioServerSocketChannel.class)
+                    .childHandler(new ChannelInitializer<SocketChannel>() {
 
-            })
-            .option(ChannelOption.SO_BACKLOG, 128)
-            .childOption(ChannelOption.SO_KEEPALIVE, true);
+                        @Override
+                        public void initChannel(SocketChannel ch) throws Exception {
+                            ch.pipeline().addLast(
+                                    new LineBasedFrameDecoder(MAX_LINE_LENGTH),
+                                    new StringDecoder(CharsetUtil.UTF_8),
+                                    new SignalDecoder(),
+                                    new SignalServerHandler()
+                            );
+                        }
 
-        // Bind and start to accept incoming connections.
-        b.bind(port).sync();
+                    })
+                    .option(ChannelOption.SO_BACKLOG, 128)
+                    .childOption(ChannelOption.SO_KEEPALIVE, true);
+
+            // Bind and start to accept incoming connections.
+            b.bind(port).sync();
+
+            LOGGER.info("signal server listening in tcp://localhost:{}", port);
+            running = true;
+        }
     }
 
     public void stop() throws InterruptedException {
-        workerGroup.shutdownGracefully().sync();
-        bossGroup.shutdownGracefully().sync();
+        synchronized (this) {
+            if (!running) {
+                throw new IllegalStateException("signal server not running");
+            }
+
+            LOGGER.info("shutting down signal server");
+            workerGroup.shutdownGracefully().sync();
+            bossGroup.shutdownGracefully().sync();
+            running = false;
+        }
     }
 
     public static void main(String[] args) throws InterruptedException {

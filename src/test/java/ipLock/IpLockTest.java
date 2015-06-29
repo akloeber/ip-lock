@@ -32,19 +32,28 @@ import java.util.*;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.NameFileFilter;
 import org.apache.commons.lang.StringUtils;
+import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.slf4j.MDC;
 
 public class IpLockTest {
 
+    private static final int SIGNAL_SERVER_PORT = 8080;
+
     private static File sharedResource;
+
     private static File syncFile;
 
-    private SignalServer signalServer;
+    private static SignalServer signalServer;
+
+    private int workerId;
 
     @BeforeClass
-    public static void setupClass() throws IOException {
+    public static void setupClass() throws IOException, InterruptedException {
+        MDC.put("IPL_ID", "0");
+
         sharedResource = Paths.get(System.getProperty("java.io.tmpdir"),
                 "ip-lock.shared").toFile();
         syncFile = Paths.get(System.getProperty("java.io.tmpdir"),
@@ -52,6 +61,14 @@ public class IpLockTest {
 
         sharedResource.deleteOnExit();
         syncFile.deleteOnExit();
+
+        signalServer = new SignalServer();
+        signalServer.start(SIGNAL_SERVER_PORT);
+    }
+
+    @AfterClass
+    public static void tearDown() throws InterruptedException {
+        signalServer.stop();
     }
 
     @Before
@@ -60,7 +77,18 @@ public class IpLockTest {
         sharedResource.delete();
         syncFile.delete();
 
-        signalServer = new SignalServer();
+        workerId = 1;
+    }
+
+    @Test
+    public void nop() throws InterruptedException, IOException {
+        WorkerProcessBuilder workerBuilder = createWorkerBuilder(10);
+
+        Process workerProcess = workerBuilder.start();
+
+        waitForProcesses(workerProcess);
+
+        assertExitCode(workerProcess, WorkerExitCode.SUCCESS);
     }
 
     @Test(expected = AssertionError.class)
@@ -89,7 +117,7 @@ public class IpLockTest {
     @Test
     public void testTryLockSuccess() throws IOException,
             InterruptedException {
-        WorkerProcessBuilder tryLockWorkerBuilder = createWorkerBuilder(1, 10);
+        WorkerProcessBuilder tryLockWorkerBuilder = createWorkerBuilder(10);
         tryLockWorkerBuilder.tryLock(true);
 
         Process tryLockWorkerProcess = tryLockWorkerBuilder.start();
@@ -101,8 +129,8 @@ public class IpLockTest {
     @Test
     public void testTryLockFailure() throws IOException,
             InterruptedException {
-        WorkerProcessBuilder blockingWorkerBuilder = createWorkerBuilder(0, 100);
-        WorkerProcessBuilder tryLockWorkerBuilder = createWorkerBuilder(1, 10);
+        WorkerProcessBuilder blockingWorkerBuilder = createWorkerBuilder(100);
+        WorkerProcessBuilder tryLockWorkerBuilder = createWorkerBuilder(10);
         tryLockWorkerBuilder.tryLock(true);
 
         Process blockingWorkerProcess = blockingWorkerBuilder.start();
@@ -117,7 +145,7 @@ public class IpLockTest {
     @Test
     public void testWorkerStepControl() throws IOException,
             InterruptedException {
-        WorkerProcessBuilder workerBuilder = createWorkerBuilder(0, 100)
+        WorkerProcessBuilder workerBuilder = createWorkerBuilder(100)
                 .activateBreakpoints(WorkerBreakpoint.BEFORE_LOCK);
 
         Process workerProcess = workerBuilder.start();
@@ -130,9 +158,9 @@ public class IpLockTest {
     @Test
     public void testAutomaticUnlockWhenJvmStops() throws IOException,
             InterruptedException {
-        WorkerProcessBuilder blockingWorkerBuilder = createWorkerBuilder(0, 100);
+        WorkerProcessBuilder blockingWorkerBuilder = createWorkerBuilder(100);
         blockingWorkerBuilder.skipUnlock(true);
-        WorkerProcessBuilder blockingLockWorker = createWorkerBuilder(1, 10);
+        WorkerProcessBuilder blockingLockWorker = createWorkerBuilder(10);
 
         Process blockingWorkerProcess = blockingWorkerBuilder.start();
         Thread.sleep(50);
@@ -169,16 +197,17 @@ public class IpLockTest {
         List<WorkerProcessBuilder> result = new ArrayList<>(count);
 
         for (int i = 0; i < count; i++) {
-            result.add(createWorkerBuilder(i, 10));
+            result.add(createWorkerBuilder(10));
         }
 
         return result;
     }
 
-    public static WorkerProcessBuilder createWorkerBuilder(int id, long workDurationMs) {
-        WorkerProcessBuilder builder = WorkerProcessBuilder.builder(id);
+    public WorkerProcessBuilder createWorkerBuilder(long workDurationMs) {
+        WorkerProcessBuilder builder = WorkerProcessBuilder.builder(workerId++);
         builder
                 .workDurationMs(workDurationMs)
+                .signalServerPort(SIGNAL_SERVER_PORT)
                 .resourcePath(sharedResource.getAbsolutePath())
                 .syncFilePath(syncFile.getAbsolutePath())
                 .useLock(true)
