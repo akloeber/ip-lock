@@ -33,13 +33,16 @@ public class Signal {
 
     private SignalCode code;
 
+    public Signal(SignalCode code) {
+        this.code = code;
+    }
+
     public static Signal valueOf(String data) {
         try {
-            Signal signal = new Signal();
-
             String[] fields = StringUtils.split(data, ':');
+            SignalCode code = SignalCode.valueOf(fields[0]);
 
-            signal.setCode(SignalCode.valueOf(fields[0]));
+            Signal signal = new Signal(code);
 
             return signal;
         } catch (RuntimeException e) {
@@ -52,12 +55,10 @@ public class Signal {
         return code;
     }
 
-    public void setCode(SignalCode code) {
-        this.code = code;
-    }
-
     @Override
     public String toString() {
-        return MessageFormat.format("<{0}>", getCode());
+        return StringUtils.join(new String[]{
+            getCode().name()
+        }, ':');
     }
 }

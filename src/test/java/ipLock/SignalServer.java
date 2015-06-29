@@ -23,7 +23,6 @@
 package ipLock;
 
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.buffer.ByteBuf;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
@@ -32,12 +31,9 @@ import io.netty.handler.codec.LineBasedFrameDecoder;
 import io.netty.handler.codec.string.StringDecoder;
 import io.netty.handler.codec.string.StringEncoder;
 import io.netty.util.CharsetUtil;
-import io.netty.util.ReferenceCountUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.List;
-import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -70,7 +66,7 @@ public class SignalServer {
 
     private EventLoopGroup workerGroup;
 
-    public void start() throws InterruptedException {
+    public void start(int port) throws InterruptedException {
         bossGroup = new NioEventLoopGroup();
         workerGroup = new NioEventLoopGroup();
 
@@ -84,7 +80,6 @@ public class SignalServer {
                     ch.pipeline().addLast(
                         new LineBasedFrameDecoder(MAX_LINE_LENGTH),
                         new StringDecoder(CharsetUtil.UTF_8),
-                        new StringEncoder(CharsetUtil.UTF_8),
                         new SignalDecoder(),
                         new SignalServerHandler()
                     );
@@ -95,7 +90,7 @@ public class SignalServer {
             .childOption(ChannelOption.SO_KEEPALIVE, true);
 
         // Bind and start to accept incoming connections.
-        b.bind(8080).sync();
+        b.bind(port).sync();
     }
 
     public void stop() throws InterruptedException {
@@ -104,26 +99,9 @@ public class SignalServer {
     }
 
     public static void main(String[] args) throws InterruptedException {
-        final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-
         final SignalServer server = new SignalServer();
 
         LOGGER.info("starting server");
-        server.start();
-
-        scheduler.schedule(new Runnable() {
-
-            @Override
-            public void run() {
-                LOGGER.info("stopping server");
-                try {
-                    server.stop();
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-
-                scheduler.shutdown();
-            }
-        }, 30000, TimeUnit.MILLISECONDS);
+        server.start(8080);
     }
 }
