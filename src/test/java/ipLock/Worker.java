@@ -48,6 +48,8 @@ public class Worker {
 
     private static CountDownLatch breakpointUnlockSignal;
 
+    private static SignalClient client;
+
     /**
      * The main method.
      *
@@ -79,7 +81,7 @@ public class Worker {
         }
         int port = Integer.valueOf(System.getenv().get("IPL_SIGNAL_SERVER_PORT"));
 
-        SignalClient client = new SignalClient();
+        client = new SignalClient();
         client.connect(port);
         client.send(new Signal(SignalCode.CONNECT));
 
@@ -144,6 +146,7 @@ public class Worker {
             LOGGER.info("stopped at breakpoint {}", currentBreakpoint);
             breakpointUnlockSignal = new CountDownLatch(1);
 
+            client.send(new Signal(SignalCode.BREAKPOINT, currentBreakpoint.toString()));
             boolean timeout = !breakpointUnlockSignal.await(MAX_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
 
             if (timeout) {

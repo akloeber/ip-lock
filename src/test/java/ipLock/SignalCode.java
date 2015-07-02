@@ -27,5 +27,7 @@ package ipLock;
  */
 public enum SignalCode {
 
-    CONNECT;
+    CONNECT,
+
+    BREAKPOINT;
 }

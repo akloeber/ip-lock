@@ -22,9 +22,10 @@
 
 package ipLock;
 
+import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
 
-import java.text.MessageFormat;
+import java.util.Arrays;
 
 /**
  * Created by aske on 28.06.15.
@@ -33,16 +34,21 @@ public class Signal {
 
     private SignalCode code;
 
-    public Signal(SignalCode code) {
+    private String[] params;
+
+    public Signal(SignalCode code, String... params) {
         this.code = code;
+        this.params = params;
     }
 
     public static Signal valueOf(String data) {
         try {
             String[] fields = StringUtils.split(data, ':');
-            SignalCode code = SignalCode.valueOf(fields[0]);
 
-            Signal signal = new Signal(code);
+            SignalCode code = SignalCode.valueOf(fields[0]);
+            String[] params = Arrays.copyOfRange(fields, 1, fields.length);
+
+            Signal signal = new Signal(code, params);
 
             return signal;
         } catch (RuntimeException e) {
@@ -51,14 +57,16 @@ public class Signal {
         }
     }
 
+    @Override
+    public String toString() {
+        return StringUtils.join(ArrayUtils.add(getParams(), 0, getCode().name()), ':');
+    }
+
     public SignalCode getCode() {
         return code;
     }
 
-    @Override
-    public String toString() {
-        return StringUtils.join(new String[]{
-            getCode().name()
-        }, ':');
+    public String[] getParams() {
+        return params;
     }
 }
