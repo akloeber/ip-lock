@@ -23,7 +23,10 @@
 package ipLock;
 
 import io.netty.bootstrap.Bootstrap;
-import io.netty.channel.*;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelOption;
+import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
@@ -39,6 +42,15 @@ public class SignalClient {
     private EventLoopGroup workerGroup;
 
     private Channel channel;
+
+    public static void main(String[] args) throws InterruptedException {
+        SignalClient client = new SignalClient();
+        client.connect(8080);
+
+        client.send(new Signal(1, SignalCode.CONNECT));
+
+        client.disconnect();
+    }
 
     public void connect(int port) throws InterruptedException {
         workerGroup = new NioEventLoopGroup();
@@ -66,14 +78,5 @@ public class SignalClient {
 
     public void send(Signal sig) throws InterruptedException {
         channel.writeAndFlush(sig.toString() + "\r\n").sync();
-    }
-
-    public static void main(String[] args) throws InterruptedException {
-        SignalClient client = new SignalClient();
-        client.connect(8080);
-
-        client.send(new Signal(1, SignalCode.CONNECT));
-
-        client.disconnect();
     }
 }

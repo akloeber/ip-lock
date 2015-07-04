@@ -76,7 +76,7 @@ public class Worker {
         boolean tryLock = Boolean.valueOf(System.getenv().get("IPL_TRY_LOCK"));
         boolean skipUnlock = Boolean.valueOf(System.getenv().get("IPL_SKIP_UNLOCK"));
         if (System.getenv().containsKey("IPL_BREAKPOINTS")) {
-            String[] breakpointNames = StringUtils.split(System.getenv().get("IPL_BREAKPOINTS"), ':');
+            String[] breakpointNames = StringUtils.split(System.getenv().get("IPL_BREAKPOINT"), ':');
             for (String name : breakpointNames) {
                 WorkerBreakpoint breakpoint = WorkerBreakpoint.valueOf(name);
                 breakpoints.add(breakpoint);

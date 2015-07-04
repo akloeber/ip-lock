@@ -41,44 +41,72 @@ public class ProcessHandle {
 
     private Integer id;
 
-    private CountDownLatch signal;
+    private CountDownLatch waitingSignal;
 
-    private WorkerBreakpoint breakpoint;
+    private WorkerBreakpoint waitingBreakpoint;
+
+    private WorkerBreakpoint targetBreakpoint;
 
     public ProcessHandle(Integer id, Process process) {
         this.id = id;
         this.process = process;
-        this.signal = new CountDownLatch(1);
     }
 
     public void waitForBreakpoint(WorkerBreakpoint breakpoint) throws InterruptedException {
-        if (this.breakpoint != null) {
-            throw new AssertionError(String.format("Already waiting for breakpoint %s", breakpoint.toString()));
+        synchronized (this) {
+            if (this.waitingBreakpoint != null) {
+                // the process is waiting at a breakpoint
+
+                if (this.waitingBreakpoint == breakpoint) {
+                    LOGGER.info("process {} has already reached breakpoint {} before", id, breakpoint);
+                    return;
+                } else {
+                    throw new AssertionError(String.format("process %d is already waiting at breakpoint %s", id, breakpoint.toString()));
+                }
+            }
+
+            this.targetBreakpoint = breakpoint;
+            this.waitingSignal = new CountDownLatch(1);
         }
 
-        this.breakpoint = breakpoint;
-
-        LOGGER.info("waiting until process {} reaches breakpoint {}", id, breakpoint);
-        boolean timeout = !signal.await(MAX_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        LOGGER.info("waiting for process {} to reach breakpoint {}", id, breakpoint);
+        boolean timeout = !waitingSignal.await(MAX_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
 
         if (timeout) {
-            fail(String.format("Timeout while waiting for process to reach breakpoint %s", breakpoint));
+            fail(String.format("Timeout while waiting for process to reach breakpoint %s", breakpoint.toString()));
         } else {
             LOGGER.info("process {} reached breakpoint {}", id, breakpoint);
         }
     }
 
     public void signalBreakpoint(WorkerBreakpoint breakpoint) {
-        if (this.breakpoint == null) {
-            // not waiting for a breakpoint, so ignore
-            return;
+        synchronized (this) {
+            if (this.targetBreakpoint != null) {
+                // there is a target breakpoint
+                if (this.targetBreakpoint != breakpoint) {
+                    // this is not the expected target endpoint
+                    throw new AssertionError(String.format("waiting for breakpoint %s but process %d stopped at breakpoint %s",
+                        this.targetBreakpoint.toString(), id, breakpoint.toString()));
+                } else {
+                    // process is waiting at target breakpoint
+                    this.waitingBreakpoint = breakpoint;
+                    this.waitingSignal.countDown();
+                }
+            } else {
+                // not waiting for a target breakpoint, so ignore for now
+                this.waitingBreakpoint = breakpoint;
+            }
         }
-        if (breakpoint != this.breakpoint) {
-            // not waiting for this breakpoint, so ignore
-            return;
-        }
+    }
 
-        signal.notify();
+    public void proceedToBreakpoint(WorkerBreakpoint breakpoint) {
+        // send command
+        this.waitingBreakpoint = null;
+    }
+
+    public void proceed() {
+        // send command
+        this.waitingBreakpoint = null;
     }
 
     public Process getProcess() {
