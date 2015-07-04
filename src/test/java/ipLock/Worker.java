@@ -44,6 +44,8 @@ public class Worker {
 
     private static final long MAX_WAIT_TIMEOUT_MS = 5000;
 
+    private static Integer id;
+
     private static Set<WorkerBreakpoint> breakpoints = new HashSet<>();
 
     private static CountDownLatch breakpointUnlockSignal;
@@ -59,14 +61,16 @@ public class Worker {
      */
     public static void main(String[] args) throws InterruptedException,
             IOException {
-        MDC.put("IPL_ID", System.getenv().get("IPL_ID"));
+        id = Integer.valueOf(System.getenv().get("IPL_ID"));
+
+        MDC.put("IPL_ID", id.toString());
 
         int workDurationMs = Integer.parseInt(System.getenv().get("IPL_WORK_DURATION_MS"));
         /*
          * Shared resource that should be accessed exclusively. For testing a
 		 * simple file is used.
 		 */
-        File resource = new File(System.getenv().get("IPL_RESOURCE_PATH"));
+        File resource = new File(System.getenv().get("IPL_SHARED_RESOURCE_PATH"));
         File syncFile = new File(System.getenv().get("IPL_SYNC_FILE_PATH"));
         boolean useLock = Boolean.valueOf(System.getenv().get("IPL_USE_LOCK"));
         boolean tryLock = Boolean.valueOf(System.getenv().get("IPL_TRY_LOCK"));
@@ -83,7 +87,7 @@ public class Worker {
 
         client = new SignalClient();
         client.connect(port);
-        client.send(new Signal(SignalCode.CONNECT));
+        client.send(new Signal(id, SignalCode.CONNECT));
 
         IpLock ipLock = new IpLock(syncFile);
 
@@ -146,7 +150,7 @@ public class Worker {
             LOGGER.info("stopped at breakpoint {}", currentBreakpoint);
             breakpointUnlockSignal = new CountDownLatch(1);
 
-            client.send(new Signal(SignalCode.BREAKPOINT, currentBreakpoint.toString()));
+            client.send(new Signal(id, SignalCode.BREAKPOINT, currentBreakpoint.toString()));
             boolean timeout = !breakpointUnlockSignal.await(MAX_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
 
             if (timeout) {

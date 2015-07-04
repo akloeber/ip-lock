@@ -22,21 +22,23 @@
 
 package ipLock;
 
-import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
-/**
- * Created by aske on 28.06.15.
- */
 public class Signal {
+
+    private Integer senderId;
 
     private SignalCode code;
 
     private String[] params;
 
-    public Signal(SignalCode code, String... params) {
+    public Signal(int senderId, SignalCode code, String... params) {
+        this.senderId = senderId;
         this.code = code;
         this.params = params;
     }
@@ -45,12 +47,11 @@ public class Signal {
         try {
             String[] fields = StringUtils.split(data, ':');
 
-            SignalCode code = SignalCode.valueOf(fields[0]);
-            String[] params = Arrays.copyOfRange(fields, 1, fields.length);
+            Integer senderId = Integer.valueOf(fields[0]);
+            SignalCode code = SignalCode.valueOf(fields[1]);
+            String[] params = Arrays.copyOfRange(fields, 2, fields.length);
 
-            Signal signal = new Signal(code, params);
-
-            return signal;
+            return new Signal(senderId, code, params);
         } catch (RuntimeException e) {
             String msg = String.format("message '%s' can not be parsed into signal", data);
             throw new IllegalArgumentException(msg, e);
@@ -59,7 +60,12 @@ public class Signal {
 
     @Override
     public String toString() {
-        return StringUtils.join(ArrayUtils.add(getParams(), 0, getCode().name()), ':');
+        List<String> parts = new ArrayList<>();
+        parts.add(getSenderId().toString());
+        parts.add(getCode().toString());
+        Collections.addAll(parts, params);
+
+        return StringUtils.join(parts, ':');
     }
 
     public SignalCode getCode() {
@@ -68,5 +74,9 @@ public class Signal {
 
     public String[] getParams() {
         return params;
+    }
+
+    public Integer getSenderId() {
+        return senderId;
     }
 }

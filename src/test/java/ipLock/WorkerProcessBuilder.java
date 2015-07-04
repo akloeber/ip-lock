@@ -28,99 +28,73 @@ import org.apache.commons.lang.StringUtils;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 
-/**
- * Created by aske on 28.06.15.
- */
 public class WorkerProcessBuilder {
+
+    private static final Integer DEFAULT_SIGNAL_SERVER_PORT = 8080;
+
+    private static final Long DEFAULT_WORK_DURATION_MS = 10L;
 
     private static String javaExecutablePath;
 
     private static String javaClasspath;
 
+    private static String tempDirPath;
+
     static {
         javaExecutablePath = determineJavaExecutablePath();
         javaClasspath = determineClasspath();
+        tempDirPath = determineTempDirPath();
     }
 
-    private ProcessBuilder pb;
+    private Integer id;
 
-    private WorkerProcessBuilder(Integer id) {
-        pb = new ProcessBuilder(javaExecutablePath,
-                "-classpath", javaClasspath, Worker.class.getName());
-        pb.inheritIO();
-        pb.environment().put("IPL_ID", id.toString());
-    }
+    private Integer signalServerPort;
 
-    public WorkerProcessBuilder signalServerPort(Integer port) {
-        pb.environment().put("IPL_SIGNAL_SERVER_PORT", port.toString());
-        return this;
-    }
+    private Boolean useLock;
 
-    public WorkerProcessBuilder tryLock(Boolean tryLock) {
-        pb.environment().put("IPL_TRY_LOCK", tryLock.toString());
-        return this;
-    }
+    private Boolean tryLock;
 
-    public WorkerProcessBuilder useLock(Boolean useLock) {
-        pb.environment().put("IPL_USE_LOCK", useLock.toString());
-        return this;
-    }
+    private Boolean skipUnlock;
 
-    public WorkerProcessBuilder skipUnlock(Boolean skipUnlock) {
-        pb.environment().put("IPL_SKIP_UNLOCK", skipUnlock.toString());
-        return this;
-    }
+    private Long workDurationMs;
 
-    public WorkerProcessBuilder workDurationMs(Long workDurationMs) {
-        pb.environment().put("IPL_WORK_DURATION_MS", workDurationMs.toString());
-        return this;
-    }
+    private File sharedResource;
 
-    public WorkerProcessBuilder resourcePath(String resourcePath) {
-        pb.environment().put("IPL_RESOURCE_PATH", resourcePath);
-        return this;
-    }
+    private File syncFile;
 
-    public WorkerProcessBuilder syncFilePath(String syncFilePath) {
-        pb.environment().put("IPL_SYNC_FILE_PATH", syncFilePath);
-        return this;
-    }
+    private WorkerBreakpoint[] breakpoints;
 
-    public WorkerProcessBuilder activateBreakpoints(WorkerBreakpoint... breakpoints) {
-        List<String> nameList = new ArrayList<>();
-        for (WorkerBreakpoint breakpoint : breakpoints) {
-            nameList.add(breakpoint.name());
-        }
-
-        pb.environment().put("IPL_BREAKPOINTS", StringUtils.join(nameList, ':'));
-        return this;
-    }
-
-    public Process start() throws IOException {
-        return pb.start();
-    }
-
-
-    public static WorkerProcessBuilder builder(Integer id) {
-        return new WorkerProcessBuilder(id);
+    public WorkerProcessBuilder() {
+        this.sharedResource = Paths.get(tempDirPath, "ip-lock.shared").toFile();
+        this.syncFile = Paths.get(tempDirPath, "ip-lock.lock").toFile();
+        this.signalServerPort = DEFAULT_SIGNAL_SERVER_PORT;
+        this.useLock = Boolean.TRUE;
+        this.tryLock = Boolean.FALSE;
+        this.skipUnlock = Boolean.FALSE;
+        this.workDurationMs = DEFAULT_WORK_DURATION_MS;
+        this.breakpoints = new WorkerBreakpoint[0];
     }
 
     private static String determineJavaExecutablePath() {
         File javaHome = new File(System.getProperty("java.home"));
 
         Collection<File> files = FileUtils.listFiles(javaHome,
-                new NameFileFilter("java"), new NameFileFilter("bin"));
+            new NameFileFilter("java"), new NameFileFilter("bin"));
 
         if (files.isEmpty()) {
             throw new RuntimeException(
-                    "No java executable found at java home '" + javaHome + "'");
+                "No java executable found at java home '" + javaHome + "'");
         }
         if (files.size() > 1) {
             throw new RuntimeException(
-                    "Multiple java executables found at java home '" + javaHome
-                            + "': " + StringUtils.join(files, "; "));
+                "Multiple java executables found at java home '" + javaHome
+                    + "': " + StringUtils.join(files, "; "));
         }
 
         return Collections.min(files).getAbsolutePath();
@@ -130,4 +104,81 @@ public class WorkerProcessBuilder {
         return System.getProperty("java.class.path");
     }
 
+    private static String determineTempDirPath() {
+        return System.getProperty("java.io.tmpdir");
+    }
+
+    public void attachId(Integer id) {
+        this.id = id;
+    }
+
+    public boolean hasIdAttached() {
+        return this.id != null;
+    }
+
+    public WorkerProcessBuilder signalServerPort(Integer port) {
+        this.signalServerPort = port;
+        return this;
+    }
+
+    public WorkerProcessBuilder tryLock(Boolean tryLock) {
+        this.tryLock = tryLock;
+        return this;
+    }
+
+    public WorkerProcessBuilder useLock(Boolean useLock) {
+        this.useLock = useLock;
+        return this;
+    }
+
+    public WorkerProcessBuilder skipUnlock(Boolean skipUnlock) {
+        this.skipUnlock = skipUnlock;
+        return this;
+    }
+
+    public WorkerProcessBuilder workDurationMs(Long workDurationMs) {
+        this.workDurationMs = workDurationMs;
+        return this;
+    }
+
+    public WorkerProcessBuilder sharedResource(File sharedResource) {
+        this.sharedResource = sharedResource;
+        return this;
+    }
+
+    public WorkerProcessBuilder syncFile(File syncFile) {
+        this.syncFile = syncFile;
+        return this;
+    }
+
+    public WorkerProcessBuilder activateBreakpoints(WorkerBreakpoint... breakpoints) {
+        this.breakpoints = breakpoints;
+        return this;
+    }
+
+    public ProcessHandle start() throws IOException {
+        ProcessBuilder pb = new ProcessBuilder(javaExecutablePath,
+            "-classpath", javaClasspath, Worker.class.getName());
+        pb.inheritIO();
+        pb.environment().put("IPL_ID", id.toString());
+
+        pb.environment().put("IPL_SIGNAL_SERVER_PORT", signalServerPort.toString());
+        pb.environment().put("IPL_TRY_LOCK", tryLock.toString());
+        pb.environment().put("IPL_USE_LOCK", useLock.toString());
+        pb.environment().put("IPL_SKIP_UNLOCK", skipUnlock.toString());
+        pb.environment().put("IPL_WORK_DURATION_MS", workDurationMs.toString());
+        pb.environment().put("IPL_SHARED_RESOURCE_PATH", sharedResource.getAbsolutePath());
+        pb.environment().put("IPL_SYNC_FILE_PATH", syncFile.getAbsolutePath());
+
+        List<String> nameList = new ArrayList<>();
+        for (WorkerBreakpoint breakpoint : breakpoints) {
+            nameList.add(breakpoint.name());
+        }
+
+        pb.environment().put("IPL_BREAKPOINTS", StringUtils.join(nameList, ':'));
+
+        Process process = pb.start();
+
+        return new ProcessHandle(id, process);
+    }
 }

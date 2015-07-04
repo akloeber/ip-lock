@@ -22,15 +22,7 @@
 
 package ipLock;
 
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.MessageToMessageDecoder;
+public interface SignalHandler {
 
-import java.util.List;
-
-public class SignalDecoder extends MessageToMessageDecoder<String> {
-
-    @Override
-    protected void decode(ChannelHandlerContext ctx, String msg, List<Object> out) throws Exception {
-        out.add(Signal.valueOf(msg));
-    }
+    void handleSignal(Signal signal);
 }

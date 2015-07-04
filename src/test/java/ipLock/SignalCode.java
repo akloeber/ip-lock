@@ -22,9 +22,6 @@
 
 package ipLock;
 
-/**
- * Created by aske on 28.06.15.
- */
 public enum SignalCode {
 
     CONNECT,

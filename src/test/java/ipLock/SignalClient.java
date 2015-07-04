@@ -32,16 +32,13 @@ import io.netty.util.CharsetUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Created by aske on 29.06.15.
- */
 public class SignalClient {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SignalClient.class);
 
     private EventLoopGroup workerGroup;
 
-    Channel channel;
+    private Channel channel;
 
     public void connect(int port) throws InterruptedException {
         workerGroup = new NioEventLoopGroup();
@@ -75,7 +72,7 @@ public class SignalClient {
         SignalClient client = new SignalClient();
         client.connect(8080);
 
-        client.send(new Signal(SignalCode.CONNECT));
+        client.send(new Signal(1, SignalCode.CONNECT));
 
         client.disconnect();
     }

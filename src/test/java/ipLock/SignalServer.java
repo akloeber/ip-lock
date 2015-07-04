@@ -29,18 +29,10 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.LineBasedFrameDecoder;
 import io.netty.handler.codec.string.StringDecoder;
-import io.netty.handler.codec.string.StringEncoder;
 import io.netty.util.CharsetUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-
-/**
- * Created by aske on 28.06.15.
- */
 public class SignalServer {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SignalServer.class);
@@ -51,9 +43,15 @@ public class SignalServer {
 
     private class SignalServerHandler extends SimpleChannelInboundHandler<Signal> {
 
+        private final SignalHandler handler;
+
+        public SignalServerHandler(SignalHandler handler) {
+            this.handler = handler;
+        }
+
         @Override
         protected void channelRead0(ChannelHandlerContext ctx, Signal sig) throws Exception {
-            System.out.println("received signal: " + sig.toString());
+            handler.handleSignal(sig);
         }
 
         @Override
@@ -68,7 +66,7 @@ public class SignalServer {
 
     private EventLoopGroup workerGroup;
 
-    public void start(int port) throws InterruptedException {
+    public void start(final int port, final SignalHandler handler) throws InterruptedException {
         synchronized (this) {
             if (running) {
                 throw new IllegalStateException("signal server already running");
@@ -88,7 +86,7 @@ public class SignalServer {
                                     new LineBasedFrameDecoder(MAX_LINE_LENGTH),
                                     new StringDecoder(CharsetUtil.UTF_8),
                                     new SignalDecoder(),
-                                    new SignalServerHandler()
+                                    new SignalServerHandler(handler)
                             );
                         }
 
@@ -99,7 +97,7 @@ public class SignalServer {
             // Bind and start to accept incoming connections.
             b.bind(port).sync();
 
-            LOGGER.info("signal server listening in tcp://localhost:{}", port);
+            LOGGER.info("signal server listening on tcp://localhost:{}", port);
             running = true;
         }
     }
@@ -121,6 +119,12 @@ public class SignalServer {
         final SignalServer server = new SignalServer();
 
         LOGGER.info("starting server");
-        server.start(8080);
+        server.start(8080, new SignalHandler() {
+
+            @Override
+            public void handleSignal(Signal signal) {
+                System.out.println("received signal: " + signal.toString());
+            }
+        });
     }
 }
