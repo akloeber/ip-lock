@@ -22,16 +22,12 @@
 
 package ipLock;
 
-import org.apache.commons.lang.ArrayUtils;
-import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -46,7 +42,7 @@ public class Worker {
 
     private static Integer id;
 
-    private static Set<WorkerBreakpoint> breakpoints = new HashSet<>();
+    private static WorkerBreakpoint breakpoint;
 
     private static CountDownLatch breakpointUnlockSignal;
 
@@ -60,34 +56,29 @@ public class Worker {
      * @throws IOException
      */
     public static void main(String[] args) throws InterruptedException,
-            IOException {
-        id = Integer.valueOf(System.getenv().get("IPL_ID"));
-
+        IOException {
+        id = Integer.valueOf(extractEnv(WorkerEnv.ID));
         MDC.put("IPL_ID", id.toString());
 
-        int workDurationMs = Integer.parseInt(System.getenv().get("IPL_WORK_DURATION_MS"));
+        int workDurationMs = Integer.parseInt(extractEnv(WorkerEnv.WORK_DURATION_MS));
         /*
          * Shared resource that should be accessed exclusively. For testing a
 		 * simple file is used.
 		 */
-        File resource = new File(System.getenv().get("IPL_SHARED_RESOURCE_PATH"));
-        File syncFile = new File(System.getenv().get("IPL_SYNC_FILE_PATH"));
-        boolean useLock = Boolean.valueOf(System.getenv().get("IPL_USE_LOCK"));
-        boolean tryLock = Boolean.valueOf(System.getenv().get("IPL_TRY_LOCK"));
-        boolean skipUnlock = Boolean.valueOf(System.getenv().get("IPL_SKIP_UNLOCK"));
-        if (System.getenv().containsKey("IPL_BREAKPOINTS")) {
-            String[] breakpointNames = StringUtils.split(System.getenv().get("IPL_BREAKPOINT"), ':');
-            for (String name : breakpointNames) {
-                WorkerBreakpoint breakpoint = WorkerBreakpoint.valueOf(name);
-                breakpoints.add(breakpoint);
-            }
-            LOGGER.info("will stop at breakpoints {}", ArrayUtils.toString(breakpointNames));
+        File resource = new File(extractEnv(WorkerEnv.SHARED_RESOURCE_PATH));
+        File syncFile = new File(extractEnv(WorkerEnv.SYNC_FILE_PATH));
+        boolean useLock = Boolean.valueOf(extractEnv(WorkerEnv.USE_LOCK));
+        boolean tryLock = Boolean.valueOf(extractEnv(WorkerEnv.TRY_LOCK));
+        boolean skipUnlock = Boolean.valueOf(extractEnv(WorkerEnv.SKIP_UNLOCK));
+        if (hasEnv(WorkerEnv.BREAKPOINT)) {
+            breakpoint = WorkerBreakpoint.valueOf(extractEnv(WorkerEnv.BREAKPOINT));
+            LOGGER.info("will stop at breakpoint {}", breakpoint);
         }
         int port = Integer.valueOf(System.getenv().get("IPL_SIGNAL_SERVER_PORT"));
 
         client = new SignalClient();
         client.connect(port);
-        client.send(new Signal(id, SignalCode.CONNECT));
+        client.send(new ClientSignal(id, SignalCode.CONNECT));
 
         IpLock ipLock = new IpLock(syncFile);
 
@@ -145,19 +136,35 @@ public class Worker {
         }
     }
 
+    private static String extractEnv(WorkerEnv var) {
+        return System.getenv().get(var.getVarName());
+    }
+
+    private static boolean hasEnv(WorkerEnv var) {
+        return System.getenv().containsKey(var.getVarName());
+    }
+
+    private static void proceed() {
+        if (breakpointUnlockSignal.getCount() == 0) {
+            throw new AssertionError(String.format("process %d is not waiting at a breakpoint", id));
+        }
+
+        breakpointUnlockSignal.countDown();
+    }
+
     private static void breakpoint(WorkerBreakpoint currentBreakpoint) throws InterruptedException {
-        if (breakpoints.contains(currentBreakpoint)) {
+        if (breakpoint == currentBreakpoint) {
             LOGGER.info("stopped at breakpoint {}", currentBreakpoint);
             breakpointUnlockSignal = new CountDownLatch(1);
 
-            client.send(new Signal(id, SignalCode.BREAKPOINT, currentBreakpoint.toString()));
+            client.send(new ClientSignal(id, SignalCode.BREAKPOINT, currentBreakpoint.toString()));
             boolean timeout = !breakpointUnlockSignal.await(MAX_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
 
             if (timeout) {
                 LOGGER.info("stalled at breakpoint {}", currentBreakpoint);
                 exit(WorkerExitCode.BREAKPOINT_TIMEOUT);
             } else {
-                LOGGER.info("breakpoint {} unlocked", currentBreakpoint);
+                LOGGER.info("proceeded over breakpoint {}", currentBreakpoint);
             }
         }
     }

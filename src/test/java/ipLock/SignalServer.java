@@ -40,31 +40,30 @@ public class SignalServer {
     private static final int MAX_LINE_LENGTH = 80;
 
     private boolean running = false;
+    private EventLoopGroup bossGroup;
+    private EventLoopGroup workerGroup;
+    private Channel channel;
 
-    private class SignalServerHandler extends SimpleChannelInboundHandler<Signal> {
+    public static void main(String[] args) throws InterruptedException {
+        final SignalServer server = new SignalServer();
 
-        private final SignalHandler handler;
+        LOGGER.info("starting server");
+        server.start(8080, new SignalHandler() {
 
-        public SignalServerHandler(SignalHandler handler) {
-            this.handler = handler;
-        }
-
-        @Override
-        protected void channelRead0(ChannelHandlerContext ctx, Signal sig) throws Exception {
-            handler.handleSignal(sig);
-        }
-
-        @Override
-        public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-            // Close the connection when an exception is raised.
-            cause.printStackTrace();
-            ctx.close();
-        }
+            @Override
+            public void handleSignal(ClientSignal signal) {
+                System.out.println("received signal: " + signal.toString());
+            }
+        });
     }
 
-    private EventLoopGroup bossGroup;
+    public void send(ServerSignal sig) throws InterruptedException {
+        if (!running) {
+            throw new IllegalStateException("server is not running");
+        }
 
-    private EventLoopGroup workerGroup;
+        //channel.write(sig).sync();
+    }
 
     public void start(final int port, final SignalHandler handler) throws InterruptedException {
         synchronized (this) {
@@ -77,25 +76,25 @@ public class SignalServer {
 
             ServerBootstrap b = new ServerBootstrap();
             b.group(bossGroup, workerGroup)
-                    .channel(NioServerSocketChannel.class)
-                    .childHandler(new ChannelInitializer<SocketChannel>() {
+                .channel(NioServerSocketChannel.class)
+                .childHandler(new ChannelInitializer<SocketChannel>() {
 
-                        @Override
-                        public void initChannel(SocketChannel ch) throws Exception {
-                            ch.pipeline().addLast(
-                                    new LineBasedFrameDecoder(MAX_LINE_LENGTH),
-                                    new StringDecoder(CharsetUtil.UTF_8),
-                                    new SignalDecoder(),
-                                    new SignalServerHandler(handler)
-                            );
-                        }
+                    @Override
+                    public void initChannel(SocketChannel ch) throws Exception {
+                        ch.pipeline().addLast(
+                            new LineBasedFrameDecoder(MAX_LINE_LENGTH),
+                            new StringDecoder(CharsetUtil.UTF_8),
+                            new SignalDecoder(),
+                            new SignalServerHandler(handler)
+                        );
+                    }
 
-                    })
-                    .option(ChannelOption.SO_BACKLOG, 128)
-                    .childOption(ChannelOption.SO_KEEPALIVE, true);
+                })
+                .option(ChannelOption.SO_BACKLOG, 128)
+                .childOption(ChannelOption.SO_KEEPALIVE, true);
 
             // Bind and start to accept incoming connections.
-            b.bind(port).sync();
+            channel = b.bind(port).sync().channel();
 
             LOGGER.info("signal server listening on tcp://localhost:{}", port);
             running = true;
@@ -115,16 +114,24 @@ public class SignalServer {
         }
     }
 
-    public static void main(String[] args) throws InterruptedException {
-        final SignalServer server = new SignalServer();
+    private class SignalServerHandler extends SimpleChannelInboundHandler<ClientSignal> {
 
-        LOGGER.info("starting server");
-        server.start(8080, new SignalHandler() {
+        private final SignalHandler handler;
 
-            @Override
-            public void handleSignal(Signal signal) {
-                System.out.println("received signal: " + signal.toString());
-            }
-        });
+        public SignalServerHandler(SignalHandler handler) {
+            this.handler = handler;
+        }
+
+        @Override
+        protected void channelRead0(ChannelHandlerContext ctx, ClientSignal sig) throws Exception {
+            handler.handleSignal(sig);
+        }
+
+        @Override
+        public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+            // Close the connection when an exception is raised.
+            cause.printStackTrace();
+            ctx.close();
+        }
     }
 }

@@ -24,5 +24,5 @@ package ipLock;
 
 public interface SignalHandler {
 
-    void handleSignal(Signal signal);
+    void handleSignal(ClientSignal signal);
 }

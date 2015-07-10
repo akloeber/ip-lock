@@ -47,7 +47,7 @@ public class SignalClient {
         SignalClient client = new SignalClient();
         client.connect(8080);
 
-        client.send(new Signal(1, SignalCode.CONNECT));
+        client.send(new ClientSignal(1, SignalCode.CONNECT));
 
         client.disconnect();
     }
@@ -76,7 +76,7 @@ public class SignalClient {
         LOGGER.info("disconnected from signal server");
     }
 
-    public void send(Signal sig) throws InterruptedException {
+    public void send(ClientSignal sig) throws InterruptedException {
         channel.writeAndFlush(sig.toString() + "\r\n").sync();
     }
 }

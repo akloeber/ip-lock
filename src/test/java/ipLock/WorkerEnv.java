@@ -11,7 +11,7 @@
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
  *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * THE SOFTWARE IS PROVIDED "AS IS
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
  * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
@@ -22,11 +22,36 @@
 
 package ipLock;
 
-public enum SignalCode {
+/**
+ * Created by Andreas Klöber on 08.07.15.
+ */
+public enum WorkerEnv {
 
-    CONNECT,
+    ID("IPL_ID"),
 
-    BREAKPOINT,
+    SIGNAL_SERVER_PORT("IPL_SIGNAL_SERVER_PORT"),
 
-    PROCEED
+    TRY_LOCK("IPL_TRY_LOCK"),
+
+    USE_LOCK("IPL_USE_LOCK"),
+
+    SKIP_UNLOCK("IPL_SKIP_UNLOCK"),
+
+    WORK_DURATION_MS("IPL_WORK_DURATION_MS"),
+
+    SHARED_RESOURCE_PATH("IPL_SHARED_RESOURCE_PATH"),
+
+    SYNC_FILE_PATH("IPL_SYNC_FILE_PATH"),
+
+    BREAKPOINT("IPL_BREAKPOINT");
+
+    private String varName;
+
+    WorkerEnv(String varName) {
+        this.varName = varName;
+    }
+
+    public String getVarName() {
+        return varName;
+    }
 }

@@ -25,58 +25,52 @@ package ipLock;
 import org.apache.commons.lang.StringUtils;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
-public class Signal {
+/**
+ * Class ServerSignal
+ *
+ * @author Andreas Klöber
+ */
+public class ServerSignal {
 
-    private Integer senderId;
+    private final Integer receiverId;
 
-    private SignalCode code;
+    private final SignalCode code;
 
-    private String[] params;
-
-    public Signal(int senderId, SignalCode code, String... params) {
-        this.senderId = senderId;
+    public ServerSignal(Integer receiverId, SignalCode code) {
+        this.receiverId = receiverId;
         this.code = code;
-        this.params = params;
-    }
-
-    public static Signal valueOf(String data) {
-        try {
-            String[] fields = StringUtils.split(data, ':');
-
-            Integer senderId = Integer.valueOf(fields[0]);
-            SignalCode code = SignalCode.valueOf(fields[1]);
-            String[] params = Arrays.copyOfRange(fields, 2, fields.length);
-
-            return new Signal(senderId, code, params);
-        } catch (RuntimeException e) {
-            String msg = String.format("message '%s' can not be parsed into signal", data);
-            throw new IllegalArgumentException(msg, e);
-        }
     }
 
     @Override
     public String toString() {
         List<String> parts = new ArrayList<>();
-        parts.add(getSenderId().toString());
+        parts.add(getReceiverId().toString());
         parts.add(getCode().toString());
-        Collections.addAll(parts, params);
 
         return StringUtils.join(parts, ':');
     }
 
+    public static ServerSignal valueOf(String data) {
+        try {
+            String[] fields = StringUtils.split(data, ':');
+
+            Integer receiverId = Integer.valueOf(fields[0]);
+            SignalCode code = SignalCode.valueOf(fields[1]);
+
+            return new ServerSignal(receiverId, code);
+        } catch (RuntimeException e) {
+            String msg = String.format("message '%s' can not be parsed into server signal", data);
+            throw new IllegalArgumentException(msg, e);
+        }
+    }
+
+    public Integer getReceiverId() {
+        return receiverId;
+    }
+
     public SignalCode getCode() {
         return code;
-    }
-
-    public String[] getParams() {
-        return params;
-    }
-
-    public Integer getSenderId() {
-        return senderId;
     }
 }

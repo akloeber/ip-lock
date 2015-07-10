@@ -29,10 +29,8 @@ import org.apache.commons.lang.StringUtils;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 
 public class WorkerProcessBuilder {
 
@@ -68,7 +66,7 @@ public class WorkerProcessBuilder {
 
     private File syncFile;
 
-    private WorkerBreakpoint[] breakpoints;
+    private WorkerBreakpoint breakpoint;
 
     public WorkerProcessBuilder() {
         this.sharedResource = Paths.get(tempDirPath, "ip-lock.shared").toFile();
@@ -78,7 +76,6 @@ public class WorkerProcessBuilder {
         this.tryLock = Boolean.FALSE;
         this.skipUnlock = Boolean.FALSE;
         this.workDurationMs = DEFAULT_WORK_DURATION_MS;
-        this.breakpoints = new WorkerBreakpoint[0];
     }
 
     private static String determineJavaExecutablePath() {
@@ -116,6 +113,10 @@ public class WorkerProcessBuilder {
         return this.id != null;
     }
 
+    public boolean hasActiveBreakpoint() {
+        return this.breakpoint != null;
+    }
+
     public WorkerProcessBuilder signalServerPort(Integer port) {
         this.signalServerPort = port;
         return this;
@@ -151,8 +152,8 @@ public class WorkerProcessBuilder {
         return this;
     }
 
-    public WorkerProcessBuilder activateBreakpoints(WorkerBreakpoint... breakpoints) {
-        this.breakpoints = breakpoints;
+    public WorkerProcessBuilder activateBreakpoint(WorkerBreakpoint breakpoints) {
+        this.breakpoint = breakpoints;
         return this;
     }
 
@@ -160,25 +161,25 @@ public class WorkerProcessBuilder {
         ProcessBuilder pb = new ProcessBuilder(javaExecutablePath,
             "-classpath", javaClasspath, Worker.class.getName());
         pb.inheritIO();
-        pb.environment().put("IPL_ID", id.toString());
 
-        pb.environment().put("IPL_SIGNAL_SERVER_PORT", signalServerPort.toString());
-        pb.environment().put("IPL_TRY_LOCK", tryLock.toString());
-        pb.environment().put("IPL_USE_LOCK", useLock.toString());
-        pb.environment().put("IPL_SKIP_UNLOCK", skipUnlock.toString());
-        pb.environment().put("IPL_WORK_DURATION_MS", workDurationMs.toString());
-        pb.environment().put("IPL_SHARED_RESOURCE_PATH", sharedResource.getAbsolutePath());
-        pb.environment().put("IPL_SYNC_FILE_PATH", syncFile.getAbsolutePath());
-
-        List<String> nameList = new ArrayList<>();
-        for (WorkerBreakpoint breakpoint : breakpoints) {
-            nameList.add(breakpoint.name());
+        putEnv(pb, WorkerEnv.ID, id);
+        putEnv(pb, WorkerEnv.SIGNAL_SERVER_PORT, signalServerPort);
+        putEnv(pb, WorkerEnv.TRY_LOCK, tryLock);
+        putEnv(pb, WorkerEnv.USE_LOCK, useLock);
+        putEnv(pb, WorkerEnv.SKIP_UNLOCK, skipUnlock);
+        putEnv(pb, WorkerEnv.WORK_DURATION_MS, workDurationMs);
+        putEnv(pb, WorkerEnv.SHARED_RESOURCE_PATH, sharedResource.getAbsolutePath());
+        putEnv(pb, WorkerEnv.SYNC_FILE_PATH, syncFile.getAbsolutePath());
+        if (this.breakpoint != null) {
+            putEnv(pb, WorkerEnv.BREAKPOINT, breakpoint);
         }
-
-        pb.environment().put("IPL_BREAKPOINTS", StringUtils.join(nameList, ':'));
 
         Process process = pb.start();
 
         return new ProcessHandle(id, process);
+    }
+
+    private void putEnv(ProcessBuilder pb, WorkerEnv var, Object val) {
+        pb.environment().put(var.getVarName(), val.toString());
     }
 }

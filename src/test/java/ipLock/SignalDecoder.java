@@ -31,6 +31,6 @@ public class SignalDecoder extends MessageToMessageDecoder<String> {
 
     @Override
     protected void decode(ChannelHandlerContext ctx, String msg, List<Object> out) throws Exception {
-        out.add(Signal.valueOf(msg));
+        out.add(ClientSignal.valueOf(msg));
     }
 }

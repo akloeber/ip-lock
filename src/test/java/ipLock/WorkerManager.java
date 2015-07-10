@@ -51,9 +51,9 @@ public class WorkerManager implements SignalHandler {
         signalServer = new SignalServer();
 
         sharedResource = Paths.get(System.getProperty("java.io.tmpdir"),
-                "ip-lock.shared").toFile();
+            "ip-lock.shared").toFile();
         syncFile = Paths.get(System.getProperty("java.io.tmpdir"),
-                "ip-lock.lock").toFile();
+            "ip-lock.lock").toFile();
 
         sharedResource.deleteOnExit();
         syncFile.deleteOnExit();
@@ -84,16 +84,17 @@ public class WorkerManager implements SignalHandler {
                 }
 
                 ProcessHandle p = super.start();
+
                 workers.put(p.getId(), p);
                 return p;
             }
         }
-                .sharedResource(sharedResource)
-                .syncFile(syncFile);
+            .sharedResource(sharedResource)
+            .syncFile(syncFile);
     }
 
-    public void await(ProcessHandle workerProcess, WorkerBreakpoint breakpoint) throws InterruptedException {
-        workerProcess.waitForBreakpoint(breakpoint);
+    public void waitForBreakpoint(ProcessHandle workerProcess) throws InterruptedException {
+        workerProcess.waitForBreakpoint();
     }
 
     public void await(ProcessHandle... pa) throws InterruptedException {
@@ -113,7 +114,7 @@ public class WorkerManager implements SignalHandler {
 
     }
 
-    public void signal(ProcessHandle p, Signal signal) {
+    public void signal(ProcessHandle p, ClientSignal signal) {
         switch (signal.getCode()) {
             case CONNECT:
                 break;
@@ -125,7 +126,7 @@ public class WorkerManager implements SignalHandler {
     }
 
     @Override
-    public void handleSignal(Signal signal) {
+    public void handleSignal(ClientSignal signal) {
         LOGGER.info("received signal: {}", signal);
         signal(determineProcess(signal.getSenderId()), signal);
     }
@@ -136,5 +137,12 @@ public class WorkerManager implements SignalHandler {
         }
 
         return workers.get(id);
+    }
+
+    public void proceed(ProcessHandle p) throws InterruptedException {
+        signalServer.send(new ServerSignal(p.getId(), SignalCode.PROCEED));
+    }
+
+    public void proceedToBreakpoint(ProcessHandle p, WorkerBreakpoint afterLock) {
     }
 }

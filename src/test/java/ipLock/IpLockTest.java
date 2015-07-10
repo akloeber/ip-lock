@@ -56,12 +56,15 @@ public class IpLockTest {
         InterruptedException {
         ProcessHandle p = workerManager
             .builder()
-            .activateBreakpoints(WorkerBreakpoint.BEFORE_LOCK)
+            .activateBreakpoint(WorkerBreakpoint.BEFORE_LOCK)
             .start();
 
-        workerManager.await(p, WorkerBreakpoint.BEFORE_LOCK);
-        workerManager.await(p);
+        workerManager.waitForBreakpoint(p);
+        workerManager.proceedToBreakpoint(p, WorkerBreakpoint.AFTER_LOCK);
 
+        workerManager.proceed(p);
+
+        workerManager.await(p);
         p.assertExitCode(WorkerExitCode.SUCCESS);
     }
 
