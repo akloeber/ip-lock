@@ -62,7 +62,10 @@ public class SignalClient {
         b.handler(new ChannelInitializer<SocketChannel>() {
             @Override
             public void initChannel(SocketChannel ch) throws Exception {
-                ch.pipeline().addLast(new StringEncoder(CharsetUtil.UTF_8));
+                ch.pipeline().addLast(
+                    new StringEncoder(CharsetUtil.UTF_8),
+                    new SignalEncoder()
+                );
             }
         });
 
@@ -77,6 +80,6 @@ public class SignalClient {
     }
 
     public void send(ClientSignal sig) throws InterruptedException {
-        channel.writeAndFlush(sig.toString() + "\r\n").sync();
+        channel.writeAndFlush(sig).sync();
     }
 }

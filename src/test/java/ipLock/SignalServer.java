@@ -62,6 +62,7 @@ public class SignalServer {
             throw new IllegalStateException("server is not running");
         }
 
+        // TODO: implement
         //channel.write(sig).sync();
     }
 

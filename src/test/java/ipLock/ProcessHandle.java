@@ -50,6 +50,37 @@ public class ProcessHandle {
         this.process = process;
     }
 
+    public void signalBreakpoint(WorkerBreakpoint breakpoint) {
+        synchronized (this) {
+            if (waitingAtBreakpoint != null) {
+                throw new IllegalStateException(String.format("process was already waiting at breakpoint %s " +
+                    "when signal for breakpoint %s arrived ", waitingAtBreakpoint.name(), breakpoint.name()));
+            }
+
+            if (this.waitingSignal != null) {
+                // the manager has been waiting for this breakpoint to be reached
+                this.waitingSignal.countDown();
+            }
+
+            this.waitingAtBreakpoint = breakpoint;
+        }
+    }
+
+    public void proceedToBreakpoint(WorkerBreakpoint breakpoint) throws InterruptedException {
+        activateBreakpoint(breakpoint);
+        proceed();
+        waitForBreakpoint();
+    }
+
+    public void activateBreakpoint(WorkerBreakpoint breakpoint) {
+        // TODO: send BREAKPOINT signal
+    }
+
+    public void proceed() {
+        this.waitingAtBreakpoint = null;
+        // TODO: send PROCEED signal
+    }
+
     public void waitForBreakpoint() throws InterruptedException {
         synchronized (this) {
             if (waitingAtBreakpoint != null) {
@@ -69,31 +100,6 @@ public class ProcessHandle {
         } else {
             LOGGER.info("process {} reached breakpoint", id);
         }
-    }
-
-    public void signalBreakpoint(WorkerBreakpoint breakpoint) {
-        synchronized (this) {
-            if (waitingAtBreakpoint != null) {
-                throw new IllegalStateException(String.format("process was already waiting at breakpoint %s " +
-                    "when signal for breakpoint %s arrived ", waitingAtBreakpoint.name(), breakpoint.name()));
-            }
-
-            if (this.waitingSignal != null) {
-                // the manager has been waiting for this breakpoint to be reached
-                this.waitingSignal.countDown();
-            }
-
-            this.waitingAtBreakpoint = breakpoint;
-        }
-    }
-
-    public void proceedToBreakpoint(WorkerBreakpoint breakpoint) throws InterruptedException {
-        proceed();
-        waitForBreakpoint();
-    }
-
-    public void proceed() {
-        this.waitingAtBreakpoint = null;
     }
 
     public Process getProcess() {
