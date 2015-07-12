@@ -30,6 +30,8 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.handler.codec.LineBasedFrameDecoder;
+import io.netty.handler.codec.string.StringDecoder;
 import io.netty.handler.codec.string.StringEncoder;
 import io.netty.util.CharsetUtil;
 import org.slf4j.Logger;
@@ -39,20 +41,27 @@ public class SignalClient {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SignalClient.class);
 
+    private static final int MAX_LINE_LENGTH = 80;
+
     private EventLoopGroup workerGroup;
 
     private Channel channel;
 
     public static void main(String[] args) throws InterruptedException {
         SignalClient client = new SignalClient();
-        client.connect(8080);
+        client.connect(8080, new SignalHandler() {
+            @Override
+            public void handleSignal(Signal sig) {
 
-        client.send(new ClientSignal(1, SignalCode.CONNECT));
+            }
+        });
+
+        client.send(new Signal(1, SignalCode.CONNECT));
 
         client.disconnect();
     }
 
-    public void connect(int port) throws InterruptedException {
+    public void connect(int port, final SignalHandler handler) throws InterruptedException {
         workerGroup = new NioEventLoopGroup();
 
         Bootstrap b = new Bootstrap();
@@ -63,8 +72,12 @@ public class SignalClient {
             @Override
             public void initChannel(SocketChannel ch) throws Exception {
                 ch.pipeline().addLast(
+                    new LineBasedFrameDecoder(MAX_LINE_LENGTH),
+                    new StringDecoder(CharsetUtil.UTF_8),
                     new StringEncoder(CharsetUtil.UTF_8),
-                    new SignalEncoder()
+                    new SignalDecoder(),
+                    new SignalEncoder(),
+                    new SignalHandlerAdapter(handler)
                 );
             }
         });
@@ -79,7 +92,8 @@ public class SignalClient {
         LOGGER.info("disconnected from signal server");
     }
 
-    public void send(ClientSignal sig) throws InterruptedException {
+    public void send(Signal sig) throws InterruptedException {
         channel.writeAndFlush(sig).sync();
     }
+
 }

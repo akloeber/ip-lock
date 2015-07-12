@@ -30,10 +30,10 @@ import java.util.List;
 /**
  * Created by Andreas Klöber on 11.07.15.
  */
-public class SignalEncoder extends MessageToMessageEncoder<ClientSignal> {
+public class SignalEncoder extends MessageToMessageEncoder<Signal> {
 
     @Override
-    protected void encode(ChannelHandlerContext ctx, ClientSignal sig, List<Object> out) throws Exception {
+    protected void encode(ChannelHandlerContext ctx, Signal sig, List<Object> out) throws Exception {
         out.add(sig.toString() + "\r\n");
     }
 }

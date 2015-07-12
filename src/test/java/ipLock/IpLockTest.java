@@ -60,9 +60,11 @@ public class IpLockTest {
             .start();
 
         workerManager.waitForBreakpoint(p);
-        workerManager.proceedToBreakpoint(p, WorkerBreakpoint.AFTER_LOCK);
-
         workerManager.proceed(p);
+
+//        workerManager.proceedToBreakpoint(p, WorkerBreakpoint.AFTER_LOCK);
+//
+//        workerManager.proceed(p);
 
         workerManager.await(p);
         p.assertExitCode(WorkerExitCode.SUCCESS);

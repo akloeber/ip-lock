@@ -93,10 +93,6 @@ public class WorkerManager implements SignalHandler {
             .syncFile(syncFile);
     }
 
-    public void waitForBreakpoint(ProcessHandle workerProcess) throws InterruptedException {
-        workerProcess.waitForBreakpoint();
-    }
-
     public void await(ProcessHandle... pa) throws InterruptedException {
         Collection<ProcessHandle> waitPa = new HashSet<>();
 
@@ -114,7 +110,7 @@ public class WorkerManager implements SignalHandler {
 
     }
 
-    public void signal(ProcessHandle p, ClientSignal signal) {
+    private void signal(ProcessHandle p, Signal signal) {
         switch (signal.getCode()) {
             case CONNECT:
                 break;
@@ -126,8 +122,7 @@ public class WorkerManager implements SignalHandler {
     }
 
     @Override
-    public void handleSignal(ClientSignal signal) {
-        LOGGER.info("received signal: {}", signal);
+    public void handleSignal(Signal signal) {
         signal(determineProcess(signal.getSenderId()), signal);
     }
 
@@ -140,9 +135,17 @@ public class WorkerManager implements SignalHandler {
     }
 
     public void proceed(ProcessHandle p) throws InterruptedException {
-        signalServer.send(new ServerSignal(p.getId(), SignalCode.PROCEED));
+        //p.proceed();
+        signalServer.send(new Signal(0, SignalCode.PROCEED));
     }
 
-    public void proceedToBreakpoint(ProcessHandle p, WorkerBreakpoint afterLock) {
+    public void waitForBreakpoint(ProcessHandle p) throws InterruptedException {
+        p.waitForBreakpoint();
+    }
+
+    public void proceedToBreakpoint(ProcessHandle p, WorkerBreakpoint breakpoint) throws InterruptedException {
+        p.activateBreakpoint(breakpoint);
+        p.proceed();
+        p.waitForBreakpoint();
     }
 }

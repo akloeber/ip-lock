@@ -22,7 +22,34 @@
 
 package ipLock;
 
-public interface SignalHandler {
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.SimpleChannelInboundHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-    void handleSignal(Signal sig);
+/**
+ * Created by Andreas Klöber on 12.07.15.
+ */
+public class SignalHandlerAdapter extends SimpleChannelInboundHandler<Signal> {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(SignalHandlerAdapter.class);
+
+    private final SignalHandler handler;
+
+    public SignalHandlerAdapter(SignalHandler handler) {
+        this.handler = handler;
+    }
+
+    @Override
+    protected void channelRead0(ChannelHandlerContext ctx, Signal sig) throws Exception {
+        LOGGER.info("received signal: {}", sig);
+        handler.handleSignal(sig);
+    }
+
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+        // Close the connection when an exception is raised.
+        LOGGER.error("inbound handler catched upstream error", cause);
+        ctx.close();
+    }
 }

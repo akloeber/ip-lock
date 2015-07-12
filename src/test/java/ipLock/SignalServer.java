@@ -23,12 +23,16 @@
 package ipLock;
 
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.*;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelOption;
+import io.netty.channel.ChannelPipeline;
+import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.LineBasedFrameDecoder;
 import io.netty.handler.codec.string.StringDecoder;
+import io.netty.handler.codec.string.StringEncoder;
 import io.netty.util.CharsetUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,9 +44,12 @@ public class SignalServer {
     private static final int MAX_LINE_LENGTH = 80;
 
     private boolean running = false;
+
     private EventLoopGroup bossGroup;
+
     private EventLoopGroup workerGroup;
-    private Channel channel;
+
+    private ChannelPipeline pipeline;
 
     public static void main(String[] args) throws InterruptedException {
         final SignalServer server = new SignalServer();
@@ -51,19 +58,19 @@ public class SignalServer {
         server.start(8080, new SignalHandler() {
 
             @Override
-            public void handleSignal(ClientSignal signal) {
-                System.out.println("received signal: " + signal.toString());
+            public void handleSignal(Signal sig) {
+                System.out.println("received sig: " + sig.toString());
             }
         });
     }
 
-    public void send(ServerSignal sig) throws InterruptedException {
+    public void send(Signal sig) throws InterruptedException {
         if (!running) {
             throw new IllegalStateException("server is not running");
         }
 
-        // TODO: implement
-        //channel.write(sig).sync();
+        pipeline.writeAndFlush(sig).sync();
+        LOGGER.info("sent signal: {}", sig);
     }
 
     public void start(final int port, final SignalHandler handler) throws InterruptedException {
@@ -78,24 +85,12 @@ public class SignalServer {
             ServerBootstrap b = new ServerBootstrap();
             b.group(bossGroup, workerGroup)
                 .channel(NioServerSocketChannel.class)
-                .childHandler(new ChannelInitializer<SocketChannel>() {
-
-                    @Override
-                    public void initChannel(SocketChannel ch) throws Exception {
-                        ch.pipeline().addLast(
-                            new LineBasedFrameDecoder(MAX_LINE_LENGTH),
-                            new StringDecoder(CharsetUtil.UTF_8),
-                            new SignalDecoder(),
-                            new SignalServerHandler(handler)
-                        );
-                    }
-
-                })
+                .childHandler(new SignalChannelInitializer(handler))
                 .option(ChannelOption.SO_BACKLOG, 128)
                 .childOption(ChannelOption.SO_KEEPALIVE, true);
 
             // Bind and start to accept incoming connections.
-            channel = b.bind(port).sync().channel();
+            b.bind(port).sync();
 
             LOGGER.info("signal server listening on tcp://localhost:{}", port);
             running = true;
@@ -115,24 +110,29 @@ public class SignalServer {
         }
     }
 
-    private class SignalServerHandler extends SimpleChannelInboundHandler<ClientSignal> {
+    private class SignalChannelInitializer extends ChannelInitializer<SocketChannel> {
 
-        private final SignalHandler handler;
+        private SignalHandler handler;
 
-        public SignalServerHandler(SignalHandler handler) {
+        public SignalChannelInitializer(SignalHandler handler) {
             this.handler = handler;
         }
 
         @Override
-        protected void channelRead0(ChannelHandlerContext ctx, ClientSignal sig) throws Exception {
-            handler.handleSignal(sig);
+        public void initChannel(SocketChannel ch) throws Exception {
+            ChannelPipeline p = ch.pipeline();
+            p.addLast(
+                new LineBasedFrameDecoder(MAX_LINE_LENGTH),
+                new StringDecoder(CharsetUtil.UTF_8),
+                new StringEncoder(CharsetUtil.UTF_8),
+                new SignalEncoder(),
+                new SignalDecoder(),
+                new SignalHandlerAdapter(handler)
+            );
+
+            pipeline = p;
         }
 
-        @Override
-        public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-            // Close the connection when an exception is raised.
-            cause.printStackTrace();
-            ctx.close();
-        }
     }
+
 }
