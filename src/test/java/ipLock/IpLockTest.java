@@ -52,21 +52,19 @@ public class IpLockTest {
     }
 
     @Test
-    public void testWorkerStepControl() throws IOException,
-        InterruptedException {
+    public void testWorkerStepControl() {
         ProcessHandle p = workerManager
             .builder()
             .activateBreakpoint(WorkerBreakpoint.BEFORE_LOCK)
             .start();
 
         p.waitForBreakpoint();
+
+        p.proceedToBreakpoint(WorkerBreakpoint.AFTER_LOCK);
+
         p.proceed();
+        p.waitFor();
 
-//        workerManager.proceedToBreakpoint(p, WorkerBreakpoint.AFTER_LOCK);
-//
-//        workerManager.proceed(p);
-
-        workerManager.await(p);
         p.assertExitCode(WorkerExitCode.SUCCESS);
     }
 

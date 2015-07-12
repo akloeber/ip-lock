@@ -79,8 +79,7 @@ public class Worker implements SignalHandler {
         tryLock = Boolean.valueOf(extractEnv(WorkerEnv.TRY_LOCK));
         skipUnlock = Boolean.valueOf(extractEnv(WorkerEnv.SKIP_UNLOCK));
         if (hasEnv(WorkerEnv.BREAKPOINT)) {
-            breakpoint = WorkerBreakpoint.valueOf(extractEnv(WorkerEnv.BREAKPOINT));
-            LOGGER.info("will stop at breakpoint {}", breakpoint);
+            activateBreakpoint(WorkerBreakpoint.valueOf(extractEnv(WorkerEnv.BREAKPOINT)));
         }
         serverPort = Integer.valueOf(extractEnv(WorkerEnv.SIGNAL_SERVER_PORT));
     }
@@ -122,7 +121,13 @@ public class Worker implements SignalHandler {
             throw new AssertionError(String.format("process %d is not waiting at a breakpoint", id));
         }
 
+        LOGGER.info("proceeding over breakpoint {}", breakpoint);
         breakpointUnlockSignal.countDown();
+    }
+
+    private void activateBreakpoint(WorkerBreakpoint breakpoint) {
+        LOGGER.info("activating breakpoint {}", breakpoint);
+        this.breakpoint = breakpoint;
     }
 
     private void breakpoint(WorkerBreakpoint currentBreakpoint) throws InterruptedException {
@@ -212,6 +217,9 @@ public class Worker implements SignalHandler {
         switch (sig.getCode()) {
             case PROCEED:
                 proceed();
+                break;
+            case BREAKPOINT:
+                activateBreakpoint(WorkerBreakpoint.valueOf(sig.getParams()[0]));
                 break;
         }
     }

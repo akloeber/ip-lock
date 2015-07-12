@@ -68,7 +68,7 @@ public class ProcessHandle implements SignalHandler {
         }
     }
 
-    public void proceedToBreakpoint(WorkerBreakpoint breakpoint) throws InterruptedException {
+    public void proceedToBreakpoint(WorkerBreakpoint breakpoint) {
         activateBreakpoint(breakpoint);
         proceed();
         waitForBreakpoint();
@@ -84,7 +84,7 @@ public class ProcessHandle implements SignalHandler {
         signalDispatcher.dispatch(new Signal(0, SignalCode.PROCEED));
     }
 
-    public void waitForBreakpoint() throws InterruptedException {
+    public void waitForBreakpoint() {
         synchronized (this) {
             if (waitingAtBreakpoint != null) {
                 // the process is already waiting at the breakpoint
@@ -96,12 +96,25 @@ public class ProcessHandle implements SignalHandler {
         }
 
         LOGGER.info("waiting for process {} to reach breakpoint", id);
-        boolean timeout = !waitingSignal.await(MAX_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        try {
+            boolean timeout = !waitingSignal.await(MAX_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
 
-        if (timeout) {
-            fail("Timeout while waiting for process to reach breakpoint");
-        } else {
-            LOGGER.info("process {} reached breakpoint", id);
+            if (timeout) {
+                fail("Timeout while waiting for process to reach breakpoint");
+            } else {
+                LOGGER.info("process {} reached breakpoint", id);
+            }
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+
+    }
+
+    public void waitFor() {
+        try {
+            process.waitFor();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
         }
     }
 

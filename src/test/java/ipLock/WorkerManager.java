@@ -22,17 +22,11 @@
 
 package ipLock;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.*;
 
 public class WorkerManager {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(WorkerManager.class);
 
     private static final int SIGNAL_SERVER_PORT = 8080;
 
@@ -77,7 +71,7 @@ public class WorkerManager {
         return new WorkerProcessBuilder() {
 
             @Override
-            public ProcessHandle start() throws IOException {
+            public ProcessHandle start() {
                 if (!hasIdAttached()) {
                     // add incremented ID as it is not set yet
                     attachId(workerId++);
@@ -102,7 +96,7 @@ public class WorkerManager {
             .syncFile(syncFile);
     }
 
-    public void await(ProcessHandle... pa) throws InterruptedException {
+    public void await(ProcessHandle... pa) {
         Collection<ProcessHandle> waitPa = new HashSet<>();
 
         if (pa.length == 0) {
@@ -114,7 +108,7 @@ public class WorkerManager {
         }
 
         for (ProcessHandle p : waitPa) {
-            p.getProcess().waitFor();
+            p.waitFor();
         }
 
     }

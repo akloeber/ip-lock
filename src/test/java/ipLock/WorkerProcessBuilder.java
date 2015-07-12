@@ -157,7 +157,7 @@ public class WorkerProcessBuilder {
         return this;
     }
 
-    public ProcessHandle start() throws IOException {
+    public ProcessHandle start() {
         ProcessBuilder pb = new ProcessBuilder(javaExecutablePath,
             "-classpath", javaClasspath, Worker.class.getName());
         pb.inheritIO();
@@ -174,9 +174,13 @@ public class WorkerProcessBuilder {
             putEnv(pb, WorkerEnv.BREAKPOINT, breakpoint);
         }
 
-        Process process = pb.start();
+        try {
+            Process process = pb.start();
 
-        return new ProcessHandle(id, process);
+            return new ProcessHandle(id, process);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private void putEnv(ProcessBuilder pb, WorkerEnv var, Object val) {

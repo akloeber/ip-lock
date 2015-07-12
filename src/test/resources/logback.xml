@@ -23,7 +23,7 @@
 <configuration>
     <appender name="consoleAppender" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <Pattern>%d{HH:mm:ss.SSS} %X{IPL_ID} %-5level - %msg %n
+            <Pattern>%d{HH:mm:ss.SSS} %X{IPL_ID} %-5level [%thread] - %msg %n
             </Pattern>
         </encoder>
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
