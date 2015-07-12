@@ -23,10 +23,7 @@
 package ipLock;
 
 import io.netty.bootstrap.Bootstrap;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.EventLoopGroup;
+import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
@@ -37,7 +34,7 @@ import io.netty.util.CharsetUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class SignalClient {
+public class SignalClient implements SignalDispatcher {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SignalClient.class);
 
@@ -46,20 +43,6 @@ public class SignalClient {
     private EventLoopGroup workerGroup;
 
     private Channel channel;
-
-    public static void main(String[] args) throws InterruptedException {
-        SignalClient client = new SignalClient();
-        client.connect(8080, new SignalHandler() {
-            @Override
-            public void handleSignal(Signal sig) {
-
-            }
-        });
-
-        client.send(new Signal(1, SignalCode.CONNECT));
-
-        client.disconnect();
-    }
 
     public void connect(int port, final SignalHandler handler) throws InterruptedException {
         workerGroup = new NioEventLoopGroup();
@@ -77,7 +60,7 @@ public class SignalClient {
                     new StringEncoder(CharsetUtil.UTF_8),
                     new SignalDecoder(),
                     new SignalEncoder(),
-                    new SignalHandlerAdapter(handler)
+                    new SignalClientHandlerAdapter(handler)
                 );
             }
         });
@@ -92,8 +75,34 @@ public class SignalClient {
         LOGGER.info("disconnected from signal server");
     }
 
-    public void send(Signal sig) throws InterruptedException {
-        channel.writeAndFlush(sig).sync();
+    @Override
+    public void dispatch(Signal sig) {
+        try {
+            channel.writeAndFlush(sig).sync();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
 
+    private class SignalClientHandlerAdapter extends SimpleChannelInboundHandler<Signal> {
+
+        private final SignalHandler handler;
+
+        public SignalClientHandlerAdapter(SignalHandler handler) {
+            this.handler = handler;
+        }
+
+        @Override
+        protected void channelRead0(ChannelHandlerContext ctx, Signal sig) throws Exception {
+            LOGGER.info("process received signal: {}", sig);
+            handler.handleSignal(sig);
+        }
+
+        @Override
+        public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+            // Close the connection when an exception is raised.
+            LOGGER.error("inbound handler catched upstream error", cause);
+            ctx.close();
+        }
+    }
 }

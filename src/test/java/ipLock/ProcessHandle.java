@@ -31,7 +31,7 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
-public class ProcessHandle {
+public class ProcessHandle implements SignalHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ProcessHandle.class);
 
@@ -44,6 +44,8 @@ public class ProcessHandle {
     private CountDownLatch waitingSignal;
 
     private WorkerBreakpoint waitingAtBreakpoint;
+
+    private SignalDispatcher signalDispatcher;
 
     public ProcessHandle(Integer id, Process process) {
         this.id = id;
@@ -73,12 +75,13 @@ public class ProcessHandle {
     }
 
     public void activateBreakpoint(WorkerBreakpoint breakpoint) {
-        // TODO: send BREAKPOINT signal
+        signalDispatcher.dispatch(new Signal(0, SignalCode.BREAKPOINT, breakpoint.name()));
     }
 
     public void proceed() {
         this.waitingAtBreakpoint = null;
-        // TODO: send PROCEED signal
+
+        signalDispatcher.dispatch(new Signal(0, SignalCode.PROCEED));
     }
 
     public void waitForBreakpoint() throws InterruptedException {
@@ -112,5 +115,21 @@ public class ProcessHandle {
 
     public void assertExitCode(WorkerExitCode exitCode) {
         assertEquals(exitCode.getCode(), getProcess().exitValue());
+    }
+
+    public void setSignalDispatcher(SignalDispatcher dispatcher) {
+        this.signalDispatcher = dispatcher;
+    }
+
+    @Override
+    public void handleSignal(Signal sig) {
+        switch (sig.getCode()) {
+            case CONNECT:
+                break;
+            case BREAKPOINT:
+                WorkerBreakpoint breakpoint = WorkerBreakpoint.valueOf(sig.getParams()[0]);
+                signalBreakpoint(breakpoint);
+                break;
+        }
     }
 }

@@ -130,7 +130,7 @@ public class Worker implements SignalHandler {
             LOGGER.info("stopped at breakpoint {}", currentBreakpoint);
             breakpointUnlockSignal = new CountDownLatch(1);
 
-            client.send(new Signal(id, SignalCode.BREAKPOINT, currentBreakpoint.toString()));
+            client.dispatch(new Signal(id, SignalCode.BREAKPOINT, currentBreakpoint.toString()));
             boolean timeout = !breakpointUnlockSignal.await(MAX_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
 
             if (timeout) {
@@ -145,7 +145,7 @@ public class Worker implements SignalHandler {
     public void connect() throws InterruptedException {
         client = new SignalClient();
         client.connect(serverPort, this);
-        client.send(new Signal(id, SignalCode.CONNECT));
+        client.dispatch(new Signal(id, SignalCode.CONNECT));
     }
 
     private void disconnect() throws InterruptedException {

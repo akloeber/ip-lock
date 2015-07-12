@@ -59,8 +59,8 @@ public class IpLockTest {
             .activateBreakpoint(WorkerBreakpoint.BEFORE_LOCK)
             .start();
 
-        workerManager.waitForBreakpoint(p);
-        workerManager.proceed(p);
+        p.waitForBreakpoint();
+        p.proceed();
 
 //        workerManager.proceedToBreakpoint(p, WorkerBreakpoint.AFTER_LOCK);
 //

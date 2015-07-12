@@ -30,7 +30,7 @@ import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.*;
 
-public class WorkerManager implements SignalHandler {
+public class WorkerManager {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(WorkerManager.class);
 
@@ -66,7 +66,7 @@ public class WorkerManager implements SignalHandler {
         sharedResource.delete();
         syncFile.delete();
 
-        signalServer.start(SIGNAL_SERVER_PORT, this);
+        signalServer.start(SIGNAL_SERVER_PORT);
     }
 
     public void stop() throws InterruptedException {
@@ -83,7 +83,16 @@ public class WorkerManager implements SignalHandler {
                     attachId(workerId++);
                 }
 
-                ProcessHandle p = super.start();
+                final ProcessHandle p = super.start();
+                p.setSignalDispatcher(new SignalDispatcher() {
+
+                    @Override
+                    public void dispatch(Signal sig) {
+                        signalServer.sendSignal(p.getId(), sig);
+
+                    }
+                });
+                signalServer.addSignalHandler(p.getId(), p);
 
                 workers.put(p.getId(), p);
                 return p;
@@ -110,42 +119,4 @@ public class WorkerManager implements SignalHandler {
 
     }
 
-    private void signal(ProcessHandle p, Signal signal) {
-        switch (signal.getCode()) {
-            case CONNECT:
-                break;
-            case BREAKPOINT:
-                WorkerBreakpoint breakpoint = WorkerBreakpoint.valueOf(signal.getParams()[0]);
-                p.signalBreakpoint(breakpoint);
-                break;
-        }
-    }
-
-    @Override
-    public void handleSignal(Signal signal) {
-        signal(determineProcess(signal.getSenderId()), signal);
-    }
-
-    private ProcessHandle determineProcess(Integer id) {
-        if (!workers.containsKey(id)) {
-            throw new AssertionError(String.format("No process with id %d found", id));
-        }
-
-        return workers.get(id);
-    }
-
-    public void proceed(ProcessHandle p) throws InterruptedException {
-        //p.proceed();
-        signalServer.send(new Signal(0, SignalCode.PROCEED));
-    }
-
-    public void waitForBreakpoint(ProcessHandle p) throws InterruptedException {
-        p.waitForBreakpoint();
-    }
-
-    public void proceedToBreakpoint(ProcessHandle p, WorkerBreakpoint breakpoint) throws InterruptedException {
-        p.activateBreakpoint(breakpoint);
-        p.proceed();
-        p.waitForBreakpoint();
-    }
 }

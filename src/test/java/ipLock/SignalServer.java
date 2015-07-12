@@ -23,19 +23,20 @@
 package ipLock;
 
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.ChannelPipeline;
-import io.netty.channel.EventLoopGroup;
+import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.LineBasedFrameDecoder;
 import io.netty.handler.codec.string.StringDecoder;
 import io.netty.handler.codec.string.StringEncoder;
+import io.netty.util.AttributeKey;
 import io.netty.util.CharsetUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class SignalServer {
 
@@ -49,31 +50,35 @@ public class SignalServer {
 
     private EventLoopGroup workerGroup;
 
-    private ChannelPipeline pipeline;
+    private Map<Integer, ChannelHandlerContext> signalChannelRegistry = new HashMap<>();
+
+    private Map<Integer, SignalHandler> signalHandlerRegistry = new HashMap<>();
 
     public static void main(String[] args) throws InterruptedException {
         final SignalServer server = new SignalServer();
 
         LOGGER.info("starting server");
-        server.start(8080, new SignalHandler() {
-
-            @Override
-            public void handleSignal(Signal sig) {
-                System.out.println("received sig: " + sig.toString());
-            }
-        });
+        server.start(8080);
     }
 
-    public void send(Signal sig) throws InterruptedException {
+    public void sendSignal(Integer receiverId, Signal sig) {
         if (!running) {
             throw new IllegalStateException("server is not running");
         }
 
-        pipeline.writeAndFlush(sig).sync();
-        LOGGER.info("sent signal: {}", sig);
+        try {
+            channelContextForProcessId(receiverId).writeAndFlush(sig).sync();
+            LOGGER.info("server sent signal: {}", sig);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    public void start(final int port, final SignalHandler handler) throws InterruptedException {
+    public void addSignalHandler(Integer id, SignalHandler handler) {
+        signalHandlerRegistry.put(id, handler);
+    }
+
+    public void start(final int port) throws InterruptedException {
         synchronized (this) {
             if (running) {
                 throw new IllegalStateException("signal server already running");
@@ -85,7 +90,7 @@ public class SignalServer {
             ServerBootstrap b = new ServerBootstrap();
             b.group(bossGroup, workerGroup)
                 .channel(NioServerSocketChannel.class)
-                .childHandler(new SignalChannelInitializer(handler))
+                .childHandler(new SignalChannelInitializer())
                 .option(ChannelOption.SO_BACKLOG, 128)
                 .childOption(ChannelOption.SO_KEEPALIVE, true);
 
@@ -110,13 +115,25 @@ public class SignalServer {
         }
     }
 
-    private class SignalChannelInitializer extends ChannelInitializer<SocketChannel> {
+    private ChannelHandlerContext channelContextForProcessId(Integer id) {
+        if (!signalChannelRegistry.containsKey(id)) {
+            throw new AssertionError(String.format("No channel for process %d registered", id));
 
-        private SignalHandler handler;
-
-        public SignalChannelInitializer(SignalHandler handler) {
-            this.handler = handler;
         }
+
+        return signalChannelRegistry.get(id);
+    }
+
+    private SignalHandler signalHandlerForProcessId(Integer id) {
+        if (!signalHandlerRegistry.containsKey(id)) {
+            throw new AssertionError(String.format("No signal handler for process %d registered", id));
+
+        }
+
+        return signalHandlerRegistry.get(id);
+    }
+
+    private class SignalChannelInitializer extends ChannelInitializer<SocketChannel> {
 
         @Override
         public void initChannel(SocketChannel ch) throws Exception {
@@ -127,12 +144,45 @@ public class SignalServer {
                 new StringEncoder(CharsetUtil.UTF_8),
                 new SignalEncoder(),
                 new SignalDecoder(),
-                new SignalHandlerAdapter(handler)
+                new ConnectSignalHandler(),
+                new SignalServerHandlerAdapter()
             );
-
-            pipeline = p;
         }
 
     }
 
+    private class ConnectSignalHandler extends SimpleChannelInboundHandler<Signal> {
+
+        @Override
+        protected void channelRead0(ChannelHandlerContext ctx, Signal sig) throws Exception {
+            if (sig.getCode() == SignalCode.CONNECT) {
+                LOGGER.info("registering channel for process {}", sig.getSenderId());
+                signalChannelRegistry.put(sig.getSenderId(), ctx);
+
+                AttributeKey<Integer> key = AttributeKey.valueOf(WorkerEnv.ID.getVarName());
+                ctx.channel().attr(key).set(sig.getSenderId());
+            }
+
+            ctx.fireChannelRead(sig);
+        }
+    }
+
+    private class SignalServerHandlerAdapter extends SimpleChannelInboundHandler<Signal> {
+
+        @Override
+        protected void channelRead0(ChannelHandlerContext ctx, Signal sig) throws Exception {
+            LOGGER.info("server received signal: {}", sig);
+
+            AttributeKey<Integer> key = AttributeKey.valueOf(WorkerEnv.ID.getVarName());
+            signalHandlerForProcessId(ctx.channel().attr(key).get()).handleSignal(sig);
+        }
+
+        @Override
+        public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+            // Close the connection when an exception is raised.
+            LOGGER.error("inbound handler catched upstream error", cause);
+            ctx.close();
+        }
+
+    }
 }
