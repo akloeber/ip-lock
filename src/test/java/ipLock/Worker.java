@@ -117,7 +117,7 @@ public class Worker implements SignalHandler {
     }
 
     private void proceed() {
-        if (breakpointUnlockSignal.getCount() == 0) {
+        if (breakpointUnlockSignal == null || breakpointUnlockSignal.getCount() == 0) {
             throw new AssertionError(String.format("process %d is not waiting at a breakpoint", id));
         }
 
