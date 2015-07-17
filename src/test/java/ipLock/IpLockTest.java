@@ -22,10 +22,7 @@
 
 package ipLock;
 
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.*;
 import org.slf4j.MDC;
 
 import java.io.IOException;
@@ -43,7 +40,7 @@ public class IpLockTest {
     }
 
     @AfterClass
-    public static void tearDown() throws InterruptedException {
+    public static void tearDownClass() throws InterruptedException {
         workerManager.stop();
     }
 
@@ -51,8 +48,30 @@ public class IpLockTest {
     public void setup() throws IOException {
     }
 
+    @After
+    public void tearDown() {
+        workerManager.cleanup();
+    }
+
     @Test
-    public void testWorkerStepControl() {
+    public void testWorkerStepControlFirst() {
+        ProcessHandle p = workerManager
+            .builder()
+            .activateBreakpoint(WorkerBreakpoint.BEFORE_LOCK)
+            .start();
+
+        p.waitForBreakpoint();
+
+        p.proceedToBreakpoint(WorkerBreakpoint.AFTER_LOCK);
+
+        p.proceed();
+        p.waitFor();
+
+        p.assertExitCode(WorkerExitCode.SUCCESS);
+    }
+
+    @Test
+    public void testWorkerStepControlSecond() {
         ProcessHandle p = workerManager
             .builder()
             .activateBreakpoint(WorkerBreakpoint.BEFORE_LOCK)

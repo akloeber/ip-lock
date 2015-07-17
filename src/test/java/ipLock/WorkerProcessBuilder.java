@@ -177,7 +177,7 @@ public class WorkerProcessBuilder {
         try {
             Process process = pb.start();
 
-            return new ProcessHandle(id, process);
+            return new ProcessHandle(id, process, breakpoint);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

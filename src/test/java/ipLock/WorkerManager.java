@@ -25,6 +25,7 @@ package ipLock;
 import java.io.File;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class WorkerManager {
 
@@ -38,10 +39,10 @@ public class WorkerManager {
 
     private File syncFile;
 
-    private int workerId;
+    private AtomicInteger workerId;
 
     public WorkerManager() {
-        workers = new HashMap<>();
+        workers = Collections.synchronizedMap(new HashMap<Integer, ProcessHandle>());
         signalServer = new SignalServer();
 
         sharedResource = Paths.get(System.getProperty("java.io.tmpdir"),
@@ -52,7 +53,7 @@ public class WorkerManager {
         sharedResource.deleteOnExit();
         syncFile.deleteOnExit();
 
-        workerId = 1;
+        workerId = new AtomicInteger(0);
     }
 
     public void start() throws InterruptedException {
@@ -67,6 +68,12 @@ public class WorkerManager {
         signalServer.stop();
     }
 
+    public void cleanup() {
+        for (ProcessHandle p : workers.values()) {
+            p.kill();
+        }
+    }
+
     public WorkerProcessBuilder builder() {
         return new WorkerProcessBuilder() {
 
@@ -74,7 +81,7 @@ public class WorkerManager {
             public ProcessHandle start() {
                 if (!hasIdAttached()) {
                     // add incremented ID as it is not set yet
-                    attachId(workerId++);
+                    attachId(workerId.incrementAndGet());
                 }
 
                 final ProcessHandle p = super.start();
