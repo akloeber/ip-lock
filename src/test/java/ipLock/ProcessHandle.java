@@ -25,11 +25,10 @@ package ipLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Phaser;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
 
 public class ProcessHandle implements SignalHandler {
 
@@ -37,77 +36,79 @@ public class ProcessHandle implements SignalHandler {
 
     private static final long MAX_WAIT_TIMEOUT_MS = 5000;
 
+    private final Phaser phaser;
+
     private Process process;
 
     private Integer id;
 
-    private CountDownLatch waitingSignal;
-
-    private WorkerBreakpoint waitingAtBreakpoint;
+    private WorkerBreakpoint currentBreakpoint;
 
     private SignalDispatcher signalDispatcher;
 
-    public ProcessHandle(Integer id, Process process) {
+    public ProcessHandle(final Integer id, final Process process, WorkerBreakpoint breakpoint) {
         this.id = id;
         this.process = process;
+        this.currentBreakpoint = breakpoint;
+
+        this.phaser = new Phaser(2) {
+
+            @Override
+            protected boolean onAdvance(int phase, int registeredParties) {
+                LOGGER.info("process {} reached breakpoint {}", id, currentBreakpoint.name());
+                currentBreakpoint = null;
+
+                return false;
+            }
+        };
     }
 
-    public void signalBreakpoint(WorkerBreakpoint breakpoint) {
-        synchronized (this) {
-            if (waitingAtBreakpoint != null) {
-                throw new IllegalStateException(String.format("process was already waiting at breakpoint %s " +
-                    "when signal for breakpoint %s arrived ", waitingAtBreakpoint.name(), breakpoint.name()));
-            }
+    @Override
+    public void handleSignal(Signal sig) {
+        // invoked on HANDLER
+        switch (sig.getCode()) {
+            case CONNECT:
+                break;
+            case BREAKPOINT:
+                arriveAndAwait();
+                break;
+        }
+    }
 
-            if (this.waitingSignal != null) {
-                // the manager has been waiting for this breakpoint to be reached
-                this.waitingSignal.countDown();
-            }
+    public void waitForBreakpoint() {
+        // invoked on MAIN
+        arriveAndAwait();
+    }
 
-            this.waitingAtBreakpoint = breakpoint;
+    private void arriveAndAwait() {
+        try {
+            LOGGER.info("arrive and await on phaser");
+            phaser.awaitAdvanceInterruptibly(phaser.arrive(), MAX_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 
     public void proceedToBreakpoint(WorkerBreakpoint breakpoint) {
+        // invoked on MAIN
         activateBreakpoint(breakpoint);
         proceed();
         waitForBreakpoint();
     }
 
     public void activateBreakpoint(WorkerBreakpoint breakpoint) {
+        // invoked on MAIN
+        if (this.currentBreakpoint != null) {
+            throw new IllegalStateException(String.format("breakpoint %s " +
+                "is already active", breakpoint.name()));
+        }
+        this.currentBreakpoint = breakpoint;
         signalDispatcher.dispatch(new Signal(0, SignalCode.BREAKPOINT, breakpoint.name()));
     }
 
     public void proceed() {
-        this.waitingAtBreakpoint = null;
-
+        // invoked on MAIN
         signalDispatcher.dispatch(new Signal(0, SignalCode.PROCEED));
-    }
-
-    public void waitForBreakpoint() {
-        synchronized (this) {
-            if (waitingAtBreakpoint != null) {
-                // the process is already waiting at the breakpoint
-                LOGGER.info("process {} has already reached breakpoint {} before", id, waitingAtBreakpoint);
-                return;
-            }
-
-            this.waitingSignal = new CountDownLatch(1);
-        }
-
-        LOGGER.info("waiting for process {} to reach breakpoint", id);
-        try {
-            boolean timeout = !waitingSignal.await(MAX_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-
-            if (timeout) {
-                fail("Timeout while waiting for process to reach breakpoint");
-            } else {
-                LOGGER.info("process {} reached breakpoint", id);
-            }
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-
     }
 
     public void waitFor() {
@@ -134,15 +135,7 @@ public class ProcessHandle implements SignalHandler {
         this.signalDispatcher = dispatcher;
     }
 
-    @Override
-    public void handleSignal(Signal sig) {
-        switch (sig.getCode()) {
-            case CONNECT:
-                break;
-            case BREAKPOINT:
-                WorkerBreakpoint breakpoint = WorkerBreakpoint.valueOf(sig.getParams()[0]);
-                signalBreakpoint(breakpoint);
-                break;
-        }
+    public void kill() {
+        process.destroy();
     }
 }
