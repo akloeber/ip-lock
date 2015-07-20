@@ -25,7 +25,6 @@ package ipLock;
 import java.io.File;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class WorkerManager {
 
@@ -39,8 +38,6 @@ public class WorkerManager {
 
     private File syncFile;
 
-    private AtomicInteger workerId;
-
     public WorkerManager() {
         workers = Collections.synchronizedMap(new HashMap<Integer, ProcessHandle>());
         signalServer = new SignalServer();
@@ -52,8 +49,6 @@ public class WorkerManager {
 
         sharedResource.deleteOnExit();
         syncFile.deleteOnExit();
-
-        workerId = new AtomicInteger(0);
     }
 
     public void start() throws InterruptedException {
@@ -78,25 +73,17 @@ public class WorkerManager {
         return new WorkerProcessBuilder() {
 
             @Override
-            public ProcessHandle start() {
-                if (!hasIdAttached()) {
-                    // add incremented ID as it is not set yet
-                    attachId(workerId.incrementAndGet());
-                }
-
-                final ProcessHandle p = super.start();
+            protected void onProcessCreated(final ProcessHandle p) {
                 p.setSignalDispatcher(new SignalDispatcher() {
 
                     @Override
                     public void dispatch(Signal sig) {
                         signalServer.sendSignal(p.getId(), sig);
-
                     }
                 });
                 signalServer.addSignalHandler(p.getId(), p);
 
                 workers.put(p.getId(), p);
-                return p;
             }
         }
             .sharedResource(sharedResource)
@@ -120,4 +107,9 @@ public class WorkerManager {
 
     }
 
+    void assertExitCode(WorkerExitCode exitCode, ProcessHandle... processes) {
+        for (ProcessHandle p : processes) {
+            p.assertExitCode(exitCode);
+        }
+    }
 }

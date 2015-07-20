@@ -22,9 +22,16 @@
 
 package ipLock;
 
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.filefilter.NameFileFilter;
+import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.io.IOException;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.TimeUnit;
 
@@ -36,9 +43,20 @@ public class ProcessHandle implements SignalHandler {
 
     private static final long MAX_WAIT_TIMEOUT_MS = 5000;
 
+    private static String javaExecutablePath;
+
+    private static String javaClasspath;
+
+    static {
+        javaExecutablePath = determineJavaExecutablePath();
+        javaClasspath = determineClasspath();
+    }
+
     private final Phaser phaser;
 
     private Process process;
+
+    private ProcessBuilder pb;
 
     private Integer id;
 
@@ -46,9 +64,8 @@ public class ProcessHandle implements SignalHandler {
 
     private SignalDispatcher signalDispatcher;
 
-    public ProcessHandle(final Integer id, final Process process, WorkerBreakpoint breakpoint) {
-        this.id = id;
-        this.process = process;
+    public ProcessHandle(WorkerBreakpoint breakpoint) {
+        this.id = WorkerProcessId.next();
         this.currentBreakpoint = breakpoint;
 
         this.phaser = new Phaser(2) {
@@ -61,6 +78,39 @@ public class ProcessHandle implements SignalHandler {
                 return false;
             }
         };
+
+        this.pb = new ProcessBuilder(javaExecutablePath,
+            "-classpath", javaClasspath, Worker.class.getName());
+        this.pb.inheritIO();
+
+        putEnv(WorkerEnv.ID, id);
+    }
+
+    private static String determineClasspath() {
+        return System.getProperty("java.class.path");
+    }
+
+    private static String determineJavaExecutablePath() {
+        File javaHome = new File(System.getProperty("java.home"));
+
+        Collection<File> files = FileUtils.listFiles(javaHome,
+            new NameFileFilter("java"), new NameFileFilter("bin"));
+
+        if (files.isEmpty()) {
+            throw new RuntimeException(
+                "No java executable found at java home '" + javaHome + "'");
+        }
+        if (files.size() > 1) {
+            throw new RuntimeException(
+                "Multiple java executables found at java home '" + javaHome
+                    + "': " + StringUtils.join(files, "; "));
+        }
+
+        return Collections.min(files).getAbsolutePath();
+    }
+
+    public void putEnv(WorkerEnv var, Object val) {
+        pb.environment().put(var.getVarName(), val.toString());
     }
 
     @Override
@@ -135,7 +185,17 @@ public class ProcessHandle implements SignalHandler {
         this.signalDispatcher = dispatcher;
     }
 
-    public void kill() {
+    public ProcessHandle kill() {
         process.destroy();
+        return this;
+    }
+
+    public ProcessHandle start() {
+        try {
+            this.process = pb.start();
+            return this;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

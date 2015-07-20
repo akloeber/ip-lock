@@ -35,6 +35,7 @@ import io.netty.util.CharsetUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -50,9 +51,11 @@ public class SignalServer {
 
     private EventLoopGroup workerGroup;
 
-    private Map<Integer, ChannelHandlerContext> signalChannelRegistry = new HashMap<>();
+    private Map<Integer, ChannelHandlerContext> signalChannelRegistry
+        = Collections.synchronizedMap(new HashMap<Integer, ChannelHandlerContext>());
 
-    private Map<Integer, SignalHandler> signalHandlerRegistry = new HashMap<>();
+    private Map<Integer, SignalHandler> signalHandlerRegistry
+        = Collections.synchronizedMap(new HashMap<Integer, SignalHandler>());
 
     public static void main(String[] args) throws InterruptedException {
         final SignalServer server = new SignalServer();
@@ -75,6 +78,7 @@ public class SignalServer {
     }
 
     public void addSignalHandler(Integer id, SignalHandler handler) {
+        LOGGER.info("registering signal handler for process {}", id);
         signalHandlerRegistry.put(id, handler);
     }
 

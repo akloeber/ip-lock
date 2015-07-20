@@ -22,35 +22,20 @@
 
 package ipLock;
 
-import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.filefilter.NameFileFilter;
-import org.apache.commons.lang.StringUtils;
-
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.Paths;
-import java.util.Collection;
-import java.util.Collections;
 
-public class WorkerProcessBuilder {
+public abstract class WorkerProcessBuilder {
 
     private static final Integer DEFAULT_SIGNAL_SERVER_PORT = 8080;
 
     private static final Long DEFAULT_WORK_DURATION_MS = 10L;
 
-    private static String javaExecutablePath;
-
-    private static String javaClasspath;
-
     private static String tempDirPath;
 
     static {
-        javaExecutablePath = determineJavaExecutablePath();
-        javaClasspath = determineClasspath();
         tempDirPath = determineTempDirPath();
     }
-
-    private Integer id;
 
     private Integer signalServerPort;
 
@@ -78,39 +63,8 @@ public class WorkerProcessBuilder {
         this.workDurationMs = DEFAULT_WORK_DURATION_MS;
     }
 
-    private static String determineJavaExecutablePath() {
-        File javaHome = new File(System.getProperty("java.home"));
-
-        Collection<File> files = FileUtils.listFiles(javaHome,
-            new NameFileFilter("java"), new NameFileFilter("bin"));
-
-        if (files.isEmpty()) {
-            throw new RuntimeException(
-                "No java executable found at java home '" + javaHome + "'");
-        }
-        if (files.size() > 1) {
-            throw new RuntimeException(
-                "Multiple java executables found at java home '" + javaHome
-                    + "': " + StringUtils.join(files, "; "));
-        }
-
-        return Collections.min(files).getAbsolutePath();
-    }
-
-    private static String determineClasspath() {
-        return System.getProperty("java.class.path");
-    }
-
     private static String determineTempDirPath() {
         return System.getProperty("java.io.tmpdir");
-    }
-
-    public void attachId(Integer id) {
-        this.id = id;
-    }
-
-    public boolean hasIdAttached() {
-        return this.id != null;
     }
 
     public boolean hasActiveBreakpoint() {
@@ -157,33 +111,41 @@ public class WorkerProcessBuilder {
         return this;
     }
 
+    private ProcessHandle build() {
+
+        ProcessHandle ph = new ProcessHandle(breakpoint);
+
+        ph.putEnv(WorkerEnv.SIGNAL_SERVER_PORT, signalServerPort);
+        ph.putEnv(WorkerEnv.TRY_LOCK, tryLock);
+        ph.putEnv(WorkerEnv.USE_LOCK, useLock);
+        ph.putEnv(WorkerEnv.SKIP_UNLOCK, skipUnlock);
+        ph.putEnv(WorkerEnv.WORK_DURATION_MS, workDurationMs);
+        ph.putEnv(WorkerEnv.SHARED_RESOURCE_PATH, sharedResource.getAbsolutePath());
+        ph.putEnv(WorkerEnv.SYNC_FILE_PATH, syncFile.getAbsolutePath());
+        if (breakpoint != null) {
+            ph.putEnv(WorkerEnv.BREAKPOINT, breakpoint);
+        }
+
+        return ph;
+    }
+
     public ProcessHandle start() {
-        ProcessBuilder pb = new ProcessBuilder(javaExecutablePath,
-            "-classpath", javaClasspath, Worker.class.getName());
-        pb.inheritIO();
-
-        putEnv(pb, WorkerEnv.ID, id);
-        putEnv(pb, WorkerEnv.SIGNAL_SERVER_PORT, signalServerPort);
-        putEnv(pb, WorkerEnv.TRY_LOCK, tryLock);
-        putEnv(pb, WorkerEnv.USE_LOCK, useLock);
-        putEnv(pb, WorkerEnv.SKIP_UNLOCK, skipUnlock);
-        putEnv(pb, WorkerEnv.WORK_DURATION_MS, workDurationMs);
-        putEnv(pb, WorkerEnv.SHARED_RESOURCE_PATH, sharedResource.getAbsolutePath());
-        putEnv(pb, WorkerEnv.SYNC_FILE_PATH, syncFile.getAbsolutePath());
-        if (this.breakpoint != null) {
-            putEnv(pb, WorkerEnv.BREAKPOINT, breakpoint);
-        }
-
-        try {
-            Process process = pb.start();
-
-            return new ProcessHandle(id, process, breakpoint);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        return start(1)[0];
     }
 
-    private void putEnv(ProcessBuilder pb, WorkerEnv var, Object val) {
-        pb.environment().put(var.getVarName(), val.toString());
+    public ProcessHandle[] start(int count) {
+        ProcessHandle[] pha = new ProcessHandle[count];
+
+        for (int i = 0; i < count; i++) {
+            ProcessHandle ph = build();
+
+            onProcessCreated(ph);
+
+            pha[i] = ph.start();
+        }
+
+        return pha;
     }
+
+    protected abstract void onProcessCreated(ProcessHandle process);
 }

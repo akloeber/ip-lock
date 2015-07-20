@@ -54,6 +54,7 @@ public class IpLockTest {
     }
 
     @Test
+    @Ignore
     public void testWorkerStepControlFirst() {
         ProcessHandle p = workerManager
             .builder()
@@ -71,6 +72,7 @@ public class IpLockTest {
     }
 
     @Test
+    @Ignore
     public void testWorkerStepControlSecond() {
         ProcessHandle p = workerManager
             .builder()
@@ -87,20 +89,19 @@ public class IpLockTest {
         p.assertExitCode(WorkerExitCode.SUCCESS);
     }
 
-    /*
     @Test(expected = AssertionError.class)
     public void testLockingFailure() throws IOException,
         InterruptedException {
-        List<WorkerProcessBuilder> workerBuilders = createWorkerBuilders(3);
-        for (WorkerProcessBuilder workerBuilder : workerBuilders) {
-            workerBuilder.useLock(false);
-        }
-        List<Process> processes = startWorkers(workerBuilders);
+        ProcessHandle[] pa = workerManager
+            .builder()
+            .useLock(false)
+            .start(3);
 
-        waitForProcesses(processes);
-        assertExitCode(processes, WorkerExitCode.SUCCESS);
+        workerManager.await(pa);
+        workerManager.assertExitCode(WorkerExitCode.SUCCESS, pa);
     }
 
+    /*
     @Test
     public void testLockingSuccess() throws IOException,
         InterruptedException {
