@@ -31,6 +31,10 @@ public abstract class WorkerProcessBuilder {
 
     private static final Long DEFAULT_WORK_DURATION_MS = 10L;
 
+    private static final long DEFAULT_BREAKPOINT_TIMEOUT_MS = 5000;
+
+    private static final long DEFAULT_WORKER_LOCK_TIMEOUT_MS = 5000;
+
     private static String tempDirPath;
 
     static {
@@ -39,13 +43,17 @@ public abstract class WorkerProcessBuilder {
 
     private Integer signalServerPort;
 
+    private Long workDurationMs;
+
+    private Long breakpointTimeoutMs;
+
+    private Object workerLockTimeoutMs;
+
     private Boolean useLock;
 
     private Boolean tryLock;
 
     private Boolean skipUnlock;
-
-    private Long workDurationMs;
 
     private File sharedResource;
 
@@ -61,6 +69,8 @@ public abstract class WorkerProcessBuilder {
         this.tryLock = Boolean.FALSE;
         this.skipUnlock = Boolean.FALSE;
         this.workDurationMs = DEFAULT_WORK_DURATION_MS;
+        this.breakpointTimeoutMs = DEFAULT_BREAKPOINT_TIMEOUT_MS;
+        this.workerLockTimeoutMs = DEFAULT_WORKER_LOCK_TIMEOUT_MS;
     }
 
     private static String determineTempDirPath() {
@@ -111,6 +121,16 @@ public abstract class WorkerProcessBuilder {
         return this;
     }
 
+    public WorkerProcessBuilder breakpointTimeoutMs(Long breakpointTimeoutMs) {
+        this.breakpointTimeoutMs = breakpointTimeoutMs;
+        return this;
+    }
+
+    public WorkerProcessBuilder workerLockTimeoutMs(long workerLockTimeoutMs) {
+        this.workerLockTimeoutMs = workerLockTimeoutMs;
+        return this;
+    }
+
     private ProcessHandle build() {
 
         ProcessHandle ph = new ProcessHandle(breakpoint);
@@ -120,6 +140,8 @@ public abstract class WorkerProcessBuilder {
         ph.putEnv(WorkerEnv.USE_LOCK, useLock);
         ph.putEnv(WorkerEnv.SKIP_UNLOCK, skipUnlock);
         ph.putEnv(WorkerEnv.WORK_DURATION_MS, workDurationMs);
+        ph.putEnv(WorkerEnv.BREAKPOINT_TIMEOUT_MS, breakpointTimeoutMs);
+        ph.putEnv(WorkerEnv.WORKER_LOCK_TIMEOUT_MS, workerLockTimeoutMs);
         ph.putEnv(WorkerEnv.SHARED_RESOURCE_PATH, sharedResource.getAbsolutePath());
         ph.putEnv(WorkerEnv.SYNC_FILE_PATH, syncFile.getAbsolutePath());
         if (breakpoint != null) {
@@ -132,6 +154,11 @@ public abstract class WorkerProcessBuilder {
     public ProcessHandle start() {
         return start(1)[0];
     }
+
+    public ProcessHandle startAndWaitForBreakpoint() {
+        return start().waitForBreakpoint();
+    }
+
 
     public ProcessHandle[] start(int count) {
         ProcessHandle[] pha = new ProcessHandle[count];

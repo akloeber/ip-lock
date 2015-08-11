@@ -125,9 +125,11 @@ public class ProcessHandle implements SignalHandler {
         }
     }
 
-    public void waitForBreakpoint() {
+    public ProcessHandle waitForBreakpoint() {
         // invoked on MAIN
         arriveAndAwait();
+
+        return this;
     }
 
     private void arriveAndAwait() {
@@ -139,14 +141,16 @@ public class ProcessHandle implements SignalHandler {
         }
     }
 
-    public void proceedToBreakpoint(WorkerBreakpoint breakpoint) {
+    public ProcessHandle proceedToBreakpoint(WorkerBreakpoint breakpoint) {
         // invoked on MAIN
         activateBreakpoint(breakpoint);
         proceed();
         waitForBreakpoint();
+
+        return this;
     }
 
-    public void activateBreakpoint(WorkerBreakpoint breakpoint) {
+    public ProcessHandle activateBreakpoint(WorkerBreakpoint breakpoint) {
         // invoked on MAIN
         if (this.currentBreakpoint != null) {
             throw new IllegalStateException(String.format("breakpoint %s " +
@@ -154,19 +158,25 @@ public class ProcessHandle implements SignalHandler {
         }
         this.currentBreakpoint = breakpoint;
         signalDispatcher.dispatch(new Signal(0, SignalCode.BREAKPOINT, breakpoint.name()));
+
+        return this;
     }
 
-    public void proceed() {
+    public ProcessHandle proceed() {
         // invoked on MAIN
         signalDispatcher.dispatch(new Signal(0, SignalCode.PROCEED));
+
+        return this;
     }
 
-    public void waitFor() {
+    public ProcessHandle waitFor() {
         try {
             process.waitFor();
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
+
+        return this;
     }
 
     public Process getProcess() {
@@ -177,8 +187,11 @@ public class ProcessHandle implements SignalHandler {
         return id;
     }
 
-    public void assertExitCode(WorkerExitCode exitCode) {
-        assertEquals(exitCode.getCode(), getProcess().exitValue());
+    public void assertExitCode(WorkerExitCode expectedExitCode) {
+        WorkerExitCode actualExitCode = WorkerExitCode.valueOf(getProcess().exitValue());
+        assertEquals(String.format(
+                "Expected exit code %s, but was %s", expectedExitCode, actualExitCode),
+            expectedExitCode, actualExitCode);
     }
 
     public void setSignalDispatcher(SignalDispatcher dispatcher) {
@@ -187,12 +200,14 @@ public class ProcessHandle implements SignalHandler {
 
     public ProcessHandle kill() {
         process.destroy();
+
         return this;
     }
 
     public ProcessHandle start() {
         try {
             this.process = pb.start();
+
             return this;
         } catch (IOException e) {
             throw new RuntimeException(e);

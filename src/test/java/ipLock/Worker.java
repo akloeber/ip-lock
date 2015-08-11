@@ -28,6 +28,8 @@ import org.slf4j.MDC;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -38,9 +40,9 @@ public class Worker implements SignalHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Worker.class);
 
-    private static final long MAX_WAIT_TIMEOUT_MS = 5000;
-
     private static final String MDC_IPL_ID = "IPL_ID";
+
+    private Timer timeoutTimer;
 
     private Integer id;
 
@@ -48,7 +50,11 @@ public class Worker implements SignalHandler {
 
     private CountDownLatch breakpointUnlockSignal;
 
-    private Integer workDurationMs;
+    private Long workDurationMs;
+
+    private Long breakpointTimeoutMs;
+
+    private Long workerLockTimeoutMs;
 
     private File resource;
 
@@ -68,7 +74,9 @@ public class Worker implements SignalHandler {
         id = Integer.valueOf(extractEnv(WorkerEnv.ID));
         MDC.put(MDC_IPL_ID, id.toString());
 
-        workDurationMs = Integer.parseInt(extractEnv(WorkerEnv.WORK_DURATION_MS));
+        workDurationMs = Long.parseLong(extractEnv(WorkerEnv.WORK_DURATION_MS));
+        breakpointTimeoutMs = Long.parseLong(extractEnv(WorkerEnv.BREAKPOINT_TIMEOUT_MS));
+        workerLockTimeoutMs = Long.parseLong(extractEnv(WorkerEnv.WORKER_LOCK_TIMEOUT_MS));
         /*
          * Shared resource that should be accessed exclusively. For testing a
 		 * simple file is used.
@@ -82,6 +90,9 @@ public class Worker implements SignalHandler {
             activateBreakpoint(WorkerBreakpoint.valueOf(extractEnv(WorkerEnv.BREAKPOINT)));
         }
         serverPort = Integer.valueOf(extractEnv(WorkerEnv.SIGNAL_SERVER_PORT));
+
+        // start timer for monitoring timeouts
+        timeoutTimer = new Timer("timeoutTimer", true);
     }
 
     /**
@@ -136,14 +147,20 @@ public class Worker implements SignalHandler {
             breakpointUnlockSignal = new CountDownLatch(1);
 
             client.dispatch(new Signal(id, SignalCode.BREAKPOINT, currentBreakpoint.toString()));
-            boolean timeout = !breakpointUnlockSignal.await(MAX_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
 
-            if (timeout) {
-                LOGGER.info("stalled at breakpoint {}", currentBreakpoint);
-                exit(WorkerExitCode.BREAKPOINT_TIMEOUT);
+            if (breakpointTimeoutMs != WorkerConstants.TIMEOUT_DISABLED) {
+                // timeout set
+                boolean timeout = !breakpointUnlockSignal.await(breakpointTimeoutMs, TimeUnit.MILLISECONDS);
+                if (timeout) {
+                    LOGGER.info("stalled at breakpoint {}", currentBreakpoint);
+                    exit(WorkerExitCode.BREAKPOINT_TIMEOUT);
+                }
             } else {
-                LOGGER.info("proceeded over breakpoint {}", currentBreakpoint);
+                // timeout disabled
+                breakpointUnlockSignal.await();
             }
+
+            LOGGER.info("proceeded over breakpoint {}", currentBreakpoint);
         }
     }
 
@@ -163,6 +180,18 @@ public class Worker implements SignalHandler {
         LOGGER.info("starting worker");
         if (useLock) {
             breakpoint(WorkerBreakpoint.BEFORE_LOCK);
+
+            // schedule task for lock timeout
+            TimerTask workerLockTimeoutTask = new TimerTask() {
+
+                @Override
+                public void run() {
+                    LOGGER.info("worker lock timeout");
+                    exit(WorkerExitCode.WORKER_LOCK_TIMEOUT);
+                }
+            };
+            timeoutTimer.schedule(workerLockTimeoutTask, workerLockTimeoutMs);
+
             if (tryLock) {
                 // try lock
                 LOGGER.info("acquiring lock (try)");
@@ -176,12 +205,15 @@ public class Worker implements SignalHandler {
                 LOGGER.info("acquiring lock (block)");
                 ipLock.lock();
             }
+
+            // unschedule task for lock timeout
+            workerLockTimeoutTask.cancel();
+
             LOGGER.info("acquired lock");
             breakpoint(WorkerBreakpoint.AFTER_LOCK);
         }
 
         try {
-            breakpoint(WorkerBreakpoint.MUTEX_AREA);
 
             if (resource.exists()) {
                 LOGGER.error("shared resource already exists; maybe created by concurrent process?");
@@ -194,6 +226,8 @@ public class Worker implements SignalHandler {
                 LOGGER.error("could not create file; maybe created by concurrent process?");
                 exit(WorkerExitCode.CONCURRENT_ACCESS_ERROR);
             }
+
+            breakpoint(WorkerBreakpoint.MUTEX_AREA);
 
             Thread.sleep(workDurationMs);
 

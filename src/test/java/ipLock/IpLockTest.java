@@ -54,7 +54,6 @@ public class IpLockTest {
     }
 
     @Test
-    @Ignore
     public void testWorkerStepControlFirst() {
         ProcessHandle p = workerManager
             .builder()
@@ -72,7 +71,6 @@ public class IpLockTest {
     }
 
     @Test
-    @Ignore
     public void testWorkerStepControlSecond() {
         ProcessHandle p = workerManager
             .builder()
@@ -89,57 +87,75 @@ public class IpLockTest {
         p.assertExitCode(WorkerExitCode.SUCCESS);
     }
 
-    @Test(expected = AssertionError.class)
-    public void testLockingFailure() throws IOException,
-        InterruptedException {
-        ProcessHandle[] pa = workerManager
+    @Test
+    public void testLockingSkippedFailure() {
+        // kick off process that enters mutex area first
+        workerManager
+            .builder()
+            .activateBreakpoint(WorkerBreakpoint.MUTEX_AREA)
+            .startAndWaitForBreakpoint();
+
+        ProcessHandle p = workerManager
             .builder()
             .useLock(false)
-            .start(3);
+            .start();
 
-        workerManager.await(pa);
-        workerManager.assertExitCode(WorkerExitCode.SUCCESS, pa);
+        workerManager.await(p);
+
+        workerManager.assertExitCode(WorkerExitCode.CONCURRENT_ACCESS_ERROR, p);
     }
 
-    /*
     @Test
-    public void testLockingSuccess() throws IOException,
-        InterruptedException {
-        List<WorkerProcessBuilder> workerBuilders = createWorkerBuilders(3);
-        List<Process> processes = startWorkers(workerBuilders);
+    public void testLockingBlocked() {
+        // kick off process that enters mutex area first and blocks
+        ProcessHandle blockingP = workerManager
+            .builder()
+            .activateBreakpoint(WorkerBreakpoint.MUTEX_AREA)
+            .breakpointTimeoutMs(WorkerConstants.TIMEOUT_DISABLED)
+            .startAndWaitForBreakpoint();
 
-        waitForProcesses(processes);
-        assertExitCode(processes, WorkerExitCode.SUCCESS);
+        ProcessHandle p1 = workerManager
+            .builder()
+            .workerLockTimeoutMs(10L)
+            .start();
+
+        workerManager.await(p1);
+
+        workerManager.assertExitCode(WorkerExitCode.WORKER_LOCK_TIMEOUT, p1);
     }
 
     @Test
     public void testTryLockSuccess() throws IOException,
         InterruptedException {
-        WorkerProcessBuilder tryLockWorkerBuilder = createWorkerBuilder(10);
-        tryLockWorkerBuilder.tryLock(true);
+        ProcessHandle p = workerManager
+            .builder()
+            .tryLock(true)
+            .start();
 
-        Process tryLockWorkerProcess = tryLockWorkerBuilder.start();
-        waitForProcesses(tryLockWorkerProcess);
-
-        assertExitCode(tryLockWorkerProcess, WorkerExitCode.SUCCESS);
+        workerManager.await(p);
+        workerManager.assertExitCode(WorkerExitCode.SUCCESS, p);
     }
 
     @Test
     public void testTryLockFailure() throws IOException,
         InterruptedException {
-        WorkerProcessBuilder blockingWorkerBuilder = createWorkerBuilder(100);
-        WorkerProcessBuilder tryLockWorkerBuilder = createWorkerBuilder(10);
-        tryLockWorkerBuilder.tryLock(true);
+        // kick off blocking process
+        workerManager
+            .builder()
+            .activateBreakpoint(WorkerBreakpoint.AFTER_LOCK)
+            .startAndWaitForBreakpoint();
 
-        Process blockingWorkerProcess = blockingWorkerBuilder.start();
-        Thread.sleep(50);
-        Process tryLockWorkerProcess = tryLockWorkerBuilder.start();
-        waitForProcesses(blockingWorkerProcess, tryLockWorkerProcess);
+        ProcessHandle tryLockP = workerManager
+            .builder()
+            .tryLock(true)
+            .start();
 
-        assertExitCode(blockingWorkerProcess, WorkerExitCode.SUCCESS);
-        assertExitCode(tryLockWorkerProcess, WorkerExitCode.TRY_LOCK_FAILED);
+        workerManager.await(tryLockP);
+
+        workerManager.assertExitCode(WorkerExitCode.TRY_LOCK_FAILED, tryLockP);
     }
 
+    /*
     @Test
     public void testAutomaticUnlockWhenJvmStops() throws IOException,
         InterruptedException {

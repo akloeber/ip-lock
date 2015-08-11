@@ -53,8 +53,7 @@ public class WorkerManager {
 
     public void start() throws InterruptedException {
         // make sure everything is clean before starting new test
-        sharedResource.delete();
-        syncFile.delete();
+        cleanup();
 
         signalServer.start(SIGNAL_SERVER_PORT);
     }
@@ -67,6 +66,9 @@ public class WorkerManager {
         for (ProcessHandle p : workers.values()) {
             p.kill();
         }
+
+        sharedResource.delete();
+        syncFile.delete();
     }
 
     public WorkerProcessBuilder builder() {

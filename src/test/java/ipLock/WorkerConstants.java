@@ -11,7 +11,7 @@
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
  *
- * THE SOFTWARE IS PROVIDED "AS IS
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
  * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
@@ -23,33 +23,9 @@
 package ipLock;
 
 /**
- * Created by Andreas Klöber on 08.07.15.
+ * Created by Andreas Klöber on 11.08.15.
  */
-public enum WorkerEnv {
+public interface WorkerConstants {
 
-    ID,
-
-    SIGNAL_SERVER_PORT,
-
-    TRY_LOCK,
-
-    USE_LOCK,
-
-    SKIP_UNLOCK,
-
-    WORK_DURATION_MS,
-
-    SHARED_RESOURCE_PATH,
-
-    SYNC_FILE_PATH,
-
-    BREAKPOINT,
-
-    BREAKPOINT_TIMEOUT_MS,
-
-    WORKER_LOCK_TIMEOUT_MS;
-
-    public String getVarName() {
-        return "IPL_" + name();
-    }
+    long TIMEOUT_DISABLED = -1L;
 }

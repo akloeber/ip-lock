@@ -22,6 +22,10 @@
 
 package ipLock;
 
+import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.Map;
+
 public enum WorkerExitCode {
 
     SUCCESS(0),
@@ -30,12 +34,26 @@ public enum WorkerExitCode {
 
     TRY_LOCK_FAILED(2),
 
-    BREAKPOINT_TIMEOUT(3);
+    BREAKPOINT_TIMEOUT(3),
+
+    WORKER_LOCK_TIMEOUT(4);
+
+    private static Map<Integer, WorkerExitCode> workerExitCodeMap = new HashMap<>();
+
+    static {
+        for (WorkerExitCode wec : EnumSet.allOf(WorkerExitCode.class)) {
+            workerExitCodeMap.put(wec.getCode(), wec);
+        }
+    }
 
     private int code;
 
     WorkerExitCode(int code) {
         this.code = code;
+    }
+
+    public static WorkerExitCode valueOf(int code) {
+        return workerExitCodeMap.get(code);
     }
 
     public int getCode() {
