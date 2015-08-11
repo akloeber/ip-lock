@@ -32,6 +32,6 @@ public enum WorkerBreakpoint {
 
     BEFORE_UNLOCK,
 
-    AFTER_UNLOCK;
+    AFTER_UNLOCK
 
 }

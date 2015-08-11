@@ -108,7 +108,7 @@ public class IpLockTest {
     @Test
     public void testLockingBlocked() {
         // kick off process that enters mutex area first and blocks
-        ProcessHandle blockingP = workerManager
+        workerManager
             .builder()
             .activateBreakpoint(WorkerBreakpoint.MUTEX_AREA)
             .breakpointTimeoutMs(WorkerConstants.TIMEOUT_DISABLED)

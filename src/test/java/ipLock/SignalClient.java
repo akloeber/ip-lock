@@ -101,7 +101,7 @@ public class SignalClient implements SignalDispatcher {
         @Override
         public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
             // Close the connection when an exception is raised.
-            LOGGER.error("inbound handler catched upstream error", cause);
+            LOGGER.error("inbound handler caught upstream error", cause);
             ctx.close();
         }
     }
