@@ -6,6 +6,9 @@ jdk:
 - openjdk8
 - oraclejdk8
 
+after_success:
+   - mvn clean cobertura:cobertura
+
 notifications:
   email:
     recipients:

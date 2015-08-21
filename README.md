@@ -13,7 +13,13 @@ TODO: embedd JavaDoc
 
 ## Test
 This libary has been tested on the following platforms:
-- Mac OS X 10.10.5 with Journaled HFS+, Oracle JRE 1.7.0_79-b15
+
+*   Mac OS X 10.10.5, Oracle JRE 1.7.0_79-b15
+*   Ubuntu 12.04 via Shippable:
+    * OpenJDK 7
+    * OpenJDK 8
+    * Oracle JDK 7
+    * Oracle JDK 8
 
 For testing it on your platform execute:
 ```
