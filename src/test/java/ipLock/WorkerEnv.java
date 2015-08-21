@@ -45,7 +45,9 @@ public enum WorkerEnv {
 
     BREAKPOINT_TIMEOUT_MS,
 
-    WORKER_LOCK_TIMEOUT_MS;
+    WORKER_LOCK_TIMEOUT_MS,
+
+    IP_LOCK_TIMEOUT_MS;
 
     public String getVarName() {
         return "IPL_" + name();

@@ -54,6 +54,8 @@ public class Worker implements SignalHandler {
 
     private Long workerLockTimeoutMs;
 
+    private Long ipLockTimeoutMs;
+
     private File syncFile;
 
     private Boolean useLock;
@@ -74,6 +76,7 @@ public class Worker implements SignalHandler {
 
         breakpointTimeoutMs = Long.parseLong(extractEnv(WorkerEnv.BREAKPOINT_TIMEOUT_MS));
         workerLockTimeoutMs = Long.parseLong(extractEnv(WorkerEnv.WORKER_LOCK_TIMEOUT_MS));
+        ipLockTimeoutMs = Long.parseLong(extractEnv(WorkerEnv.IP_LOCK_TIMEOUT_MS));
         /*
          * Shared resource that should be accessed exclusively. For testing a
 		 * simple file is used.
@@ -203,8 +206,15 @@ public class Worker implements SignalHandler {
                 }
             } else {
                 // block lock
-                LOGGER.info("acquiring lock (block)");
-                ipLock.lock();
+                if (ipLockTimeoutMs == WorkerConstants.TIMEOUT_DISABLED) {
+                    LOGGER.info("acquiring lock (block)");
+                    ipLock.lock();
+                } else {
+                    LOGGER.info("acquiring lock (block) with timeout {}ms", ipLockTimeoutMs);
+                    if (!ipLock.lock(ipLockTimeoutMs, 10L, TimeUnit.MILLISECONDS)) {
+                        exit(WorkerExitCode.IP_LOCK_TIMEOUT);
+                    }
+                }
             }
 
             // unschedule task for lock timeout

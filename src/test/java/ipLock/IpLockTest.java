@@ -92,7 +92,7 @@ public class IpLockTest {
     }
 
     @Test
-    public void testLockingBlocked() {
+    public void testLockBlocked() {
         // kick off process that enters mutex area first and blocks
         workerManager
             .builder()
@@ -108,6 +108,61 @@ public class IpLockTest {
         workerManager.await(p1);
 
         workerManager.assertExitCode(WorkerExitCode.WORKER_LOCK_TIMEOUT, p1);
+    }
+
+    @Test
+    public void testLockTimeoutFiring() {
+        // kick off process that enters mutex area first and blocks
+        workerManager
+            .builder()
+            .activateBreakpoint(WorkerBreakpoint.MUTEX_AREA)
+            .breakpointTimeoutMs(WorkerConstants.TIMEOUT_DISABLED)
+            .startAndWaitForBreakpoint();
+
+        ProcessHandle p1 = workerManager
+            .builder()
+            .ipLockTimeoutMs(10L)
+            .start();
+
+        workerManager.await(p1);
+
+        workerManager.assertExitCode(WorkerExitCode.IP_LOCK_TIMEOUT, p1);
+    }
+
+    @Test
+    public void testLockTimeoutNotFiringIfLockFree() {
+        ProcessHandle p1 = workerManager
+            .builder()
+            .ipLockTimeoutMs(10L)
+            .start();
+
+        workerManager.await(p1);
+
+        workerManager.assertExitCode(WorkerExitCode.SUCCESS, p1);
+    }
+
+    @Test
+    public void testLockTimeoutNotFiringIfLockedAcquired() throws InterruptedException {
+        // kick off process that enters mutex area first and blocks
+        ProcessHandle blockingP = workerManager
+            .builder()
+            .activateBreakpoint(WorkerBreakpoint.MUTEX_AREA)
+            .breakpointTimeoutMs(WorkerConstants.TIMEOUT_DISABLED)
+            .startAndWaitForBreakpoint();
+
+        ProcessHandle blockedP = workerManager
+            .builder()
+            .activateBreakpoint(WorkerBreakpoint.BEFORE_LOCK)
+            .ipLockTimeoutMs(1000L)
+            .startAndWaitForBreakpoint();
+
+        blockedP.proceed();
+        Thread.sleep(10);
+        blockingP.proceed();
+
+        workerManager.await(blockedP);
+
+        workerManager.assertExitCode(WorkerExitCode.SUCCESS, blockedP);
     }
 
     @Test

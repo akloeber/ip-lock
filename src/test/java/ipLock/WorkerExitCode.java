@@ -36,7 +36,9 @@ public enum WorkerExitCode {
 
     WORKER_LOCK_TIMEOUT(3),
 
-    HALT_IN_MUTEX_AREA(4);
+    HALT_IN_MUTEX_AREA(4),
+    
+    IP_LOCK_TIMEOUT(5);
 
     private static Map<Integer, WorkerExitCode> workerExitCodeMap = new HashMap<>();
 

@@ -23,11 +23,14 @@
 package ipLock;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 public class IpLock {
 
@@ -35,33 +38,69 @@ public class IpLock {
 
     private FileLock lock;
 
-    public IpLock(File syncFile) {
+    public IpLock(final File syncFile) {
         this.syncFile = syncFile;
     }
 
-    public IpLock(String syncFilePath) {
+    public IpLock(final String syncFilePath) {
         this.syncFile = new File(syncFilePath);
+    }
+
+    private static FileChannel createSyncChannel(final File file) throws IOException {
+        // make sure sync file exists
+        file.createNewFile();
+
+        RandomAccessFile raFile = new RandomAccessFile(file, "rw");
+        return raFile.getChannel();
     }
 
     public void lock() throws IOException {
         synchronized (this) {
-            // make sure sync file exists
-            this.syncFile.createNewFile();
+            this.lock = createSyncChannel(this.syncFile).lock();
+        }
+    }
 
-            FileChannel channel = createChannel(this.syncFile);
+    public boolean lock(long timeout, long tryLockInterval, TimeUnit timeUnit) throws IOException, InterruptedException {
+        synchronized (this) {
 
-            this.lock = channel.lock();
+            // schedule task for lock timeout
+            final CountDownLatch timeoutSignal = new CountDownLatch(1);
+            Timer lockTimeoutTimer = new Timer(true);
+            TimerTask lockTimeoutTask = new TimerTask() {
+
+                @Override
+                public void run() {
+                    timeoutSignal.countDown();
+                }
+            };
+
+            try {
+                lockTimeoutTimer.schedule(lockTimeoutTask, timeUnit.toMillis(timeout));
+
+                while (this.lock == null) {
+                    this.lock = createSyncChannel(this.syncFile).tryLock();
+                    if (this.lock == null) {
+                        // wait interval before next tryLock()
+                        if (timeoutSignal.await(tryLockInterval, timeUnit)) {
+                            // timeout signaled
+                            return false;
+                        }
+                    }
+                }
+
+                return true;
+
+            } finally {
+                // unschedule task for lock timeout detection
+                lockTimeoutTask.cancel();
+                lockTimeoutTimer.cancel();
+            }
         }
     }
 
     public boolean tryLock() throws IOException {
         synchronized (this) {
-            // make sure sync file exists
-            this.syncFile.createNewFile();
-
-            FileChannel channel = createChannel(this.syncFile);
-
-            this.lock = channel.tryLock();
+            this.lock = createSyncChannel(this.syncFile).tryLock();
             return this.lock != null;
         }
     }
@@ -75,10 +114,5 @@ public class IpLock {
 
             this.lock.release();
         }
-    }
-
-    private static FileChannel createChannel(File file) throws FileNotFoundException {
-        RandomAccessFile raFile = new RandomAccessFile(file, "rw");
-        return raFile.getChannel();
     }
 }

@@ -43,7 +43,9 @@ public abstract class WorkerProcessBuilder {
 
     private Long breakpointTimeoutMs;
 
-    private Object workerLockTimeoutMs;
+    private Long workerLockTimeoutMs;
+
+    private Long ipLockTimeoutMs;
 
     private Boolean useLock;
 
@@ -66,6 +68,7 @@ public abstract class WorkerProcessBuilder {
         this.haltInMutexArea = Boolean.FALSE;
         this.breakpointTimeoutMs = DEFAULT_BREAKPOINT_TIMEOUT_MS;
         this.workerLockTimeoutMs = DEFAULT_WORKER_LOCK_TIMEOUT_MS;
+        this.ipLockTimeoutMs = WorkerConstants.TIMEOUT_DISABLED;
     }
 
     private static String determineTempDirPath() {
@@ -121,6 +124,11 @@ public abstract class WorkerProcessBuilder {
         return this;
     }
 
+    public WorkerProcessBuilder ipLockTimeoutMs(long ipLockTimeoutMs) {
+        this.ipLockTimeoutMs = ipLockTimeoutMs;
+        return this;
+    }
+
     private ProcessHandle build() {
 
         ProcessHandle ph = new ProcessHandle(breakpoint);
@@ -132,6 +140,7 @@ public abstract class WorkerProcessBuilder {
         ph.putEnv(WorkerEnv.HALT_IN_MUTEX_AREA, haltInMutexArea);
         ph.putEnv(WorkerEnv.BREAKPOINT_TIMEOUT_MS, breakpointTimeoutMs);
         ph.putEnv(WorkerEnv.WORKER_LOCK_TIMEOUT_MS, workerLockTimeoutMs);
+        ph.putEnv(WorkerEnv.IP_LOCK_TIMEOUT_MS, ipLockTimeoutMs);
         ph.putEnv(WorkerEnv.SYNC_FILE_PATH, syncFile.getAbsolutePath());
         if (breakpoint != null) {
             ph.putEnv(WorkerEnv.BREAKPOINT, breakpoint);
@@ -144,10 +153,10 @@ public abstract class WorkerProcessBuilder {
         return start(1)[0];
     }
 
+
     public ProcessHandle startAndWaitForBreakpoint() {
         return start().waitForBreakpoint();
     }
-
 
     public ProcessHandle[] start(int count) {
         ProcessHandle[] pha = new ProcessHandle[count];
