@@ -213,4 +213,8 @@ public class ProcessHandle implements SignalHandler {
             throw new RuntimeException(e);
         }
     }
+
+    public void destroy() {
+        this.process.destroy();
+    }
 }

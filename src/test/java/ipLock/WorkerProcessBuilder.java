@@ -29,8 +29,6 @@ public abstract class WorkerProcessBuilder {
 
     private static final Integer DEFAULT_SIGNAL_SERVER_PORT = 8080;
 
-    private static final Long DEFAULT_WORK_DURATION_MS = 10L;
-
     private static final long DEFAULT_BREAKPOINT_TIMEOUT_MS = 5000;
 
     private static final long DEFAULT_WORKER_LOCK_TIMEOUT_MS = 5000;
@@ -43,8 +41,6 @@ public abstract class WorkerProcessBuilder {
 
     private Integer signalServerPort;
 
-    private Long workDurationMs;
-
     private Long breakpointTimeoutMs;
 
     private Object workerLockTimeoutMs;
@@ -55,20 +51,19 @@ public abstract class WorkerProcessBuilder {
 
     private Boolean skipUnlock;
 
-    private File sharedResource;
+    private Boolean haltInMutexArea;
 
     private File syncFile;
 
     private WorkerBreakpoint breakpoint;
 
     public WorkerProcessBuilder() {
-        this.sharedResource = Paths.get(tempDirPath, "ip-lock.shared").toFile();
         this.syncFile = Paths.get(tempDirPath, "ip-lock.lock").toFile();
         this.signalServerPort = DEFAULT_SIGNAL_SERVER_PORT;
         this.useLock = Boolean.TRUE;
         this.tryLock = Boolean.FALSE;
         this.skipUnlock = Boolean.FALSE;
-        this.workDurationMs = DEFAULT_WORK_DURATION_MS;
+        this.haltInMutexArea = Boolean.FALSE;
         this.breakpointTimeoutMs = DEFAULT_BREAKPOINT_TIMEOUT_MS;
         this.workerLockTimeoutMs = DEFAULT_WORKER_LOCK_TIMEOUT_MS;
     }
@@ -101,13 +96,8 @@ public abstract class WorkerProcessBuilder {
         return this;
     }
 
-    public WorkerProcessBuilder workDurationMs(Long workDurationMs) {
-        this.workDurationMs = workDurationMs;
-        return this;
-    }
-
-    public WorkerProcessBuilder sharedResource(File sharedResource) {
-        this.sharedResource = sharedResource;
+    public WorkerProcessBuilder haltInMutexArea(Boolean haltInMutexArea) {
+        this.haltInMutexArea = haltInMutexArea;
         return this;
     }
 
@@ -139,10 +129,9 @@ public abstract class WorkerProcessBuilder {
         ph.putEnv(WorkerEnv.TRY_LOCK, tryLock);
         ph.putEnv(WorkerEnv.USE_LOCK, useLock);
         ph.putEnv(WorkerEnv.SKIP_UNLOCK, skipUnlock);
-        ph.putEnv(WorkerEnv.WORK_DURATION_MS, workDurationMs);
+        ph.putEnv(WorkerEnv.HALT_IN_MUTEX_AREA, haltInMutexArea);
         ph.putEnv(WorkerEnv.BREAKPOINT_TIMEOUT_MS, breakpointTimeoutMs);
         ph.putEnv(WorkerEnv.WORKER_LOCK_TIMEOUT_MS, workerLockTimeoutMs);
-        ph.putEnv(WorkerEnv.SHARED_RESOURCE_PATH, sharedResource.getAbsolutePath());
         ph.putEnv(WorkerEnv.SYNC_FILE_PATH, syncFile.getAbsolutePath());
         if (breakpoint != null) {
             ph.putEnv(WorkerEnv.BREAKPOINT, breakpoint);
@@ -172,6 +161,10 @@ public abstract class WorkerProcessBuilder {
         }
 
         return pha;
+    }
+
+    public ProcessHandle startAndWait() {
+        return start().waitFor();
     }
 
     protected abstract void onProcessCreated(ProcessHandle process);

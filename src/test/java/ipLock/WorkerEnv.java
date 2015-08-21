@@ -37,9 +37,7 @@ public enum WorkerEnv {
 
     SKIP_UNLOCK,
 
-    WORK_DURATION_MS,
-
-    SHARED_RESOURCE_PATH,
+    HALT_IN_MUTEX_AREA,
 
     SYNC_FILE_PATH,
 

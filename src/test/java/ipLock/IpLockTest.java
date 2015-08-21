@@ -54,7 +54,7 @@ public class IpLockTest {
     }
 
     @Test
-    public void testWorkerStepControlFirst() {
+    public void testWorkerStepControl() {
         ProcessHandle p = workerManager
             .builder()
             .activateBreakpoint(WorkerBreakpoint.BEFORE_LOCK)
@@ -71,38 +71,24 @@ public class IpLockTest {
     }
 
     @Test
-    public void testWorkerStepControlSecond() {
-        ProcessHandle p = workerManager
-            .builder()
-            .activateBreakpoint(WorkerBreakpoint.BEFORE_LOCK)
-            .start();
-
-        p.waitForBreakpoint();
-
-        p.proceedToBreakpoint(WorkerBreakpoint.AFTER_LOCK);
-
-        p.proceed();
-        p.waitFor();
-
-        p.assertExitCode(WorkerExitCode.SUCCESS);
-    }
-
-    @Test
-    public void testLockingSkippedFailure() {
-        // kick off process that enters mutex area first
+    public void testMultipleProcessesInMutexAreaIfNoLockUsed() {
+        // kick off process that enters mutex area first and stays
         workerManager
             .builder()
             .activateBreakpoint(WorkerBreakpoint.MUTEX_AREA)
             .startAndWaitForBreakpoint();
 
+        // kick off process that does not use locking and thus proceeds through mutex area
         ProcessHandle p = workerManager
             .builder()
             .useLock(false)
-            .start();
+            .activateBreakpoint(WorkerBreakpoint.MUTEX_AREA)
+            .startAndWaitForBreakpoint()
+            .proceed();
 
         workerManager.await(p);
 
-        workerManager.assertExitCode(WorkerExitCode.CONCURRENT_ACCESS_ERROR, p);
+        workerManager.assertExitCode(WorkerExitCode.SUCCESS, p);
     }
 
     @Test
@@ -155,82 +141,61 @@ public class IpLockTest {
         workerManager.assertExitCode(WorkerExitCode.TRY_LOCK_FAILED, tryLockP);
     }
 
-    /*
     @Test
-    public void testAutomaticUnlockWhenJvmStops() throws IOException,
+    public void testAutomaticUnlockWhenProcessFinishesRegularly() throws IOException,
         InterruptedException {
-        WorkerProcessBuilder blockingWorkerBuilder = createWorkerBuilder(100);
-        blockingWorkerBuilder.skipUnlock(true);
-        WorkerProcessBuilder blockingLockWorker = createWorkerBuilder(10);
+        ProcessHandle blockingP = workerManager
+            .builder()
+            .activateBreakpoint(WorkerBreakpoint.MUTEX_AREA)
+            .skipUnlock(true)
+            .startAndWaitForBreakpoint();
 
-        Process blockingWorkerProcess = blockingWorkerBuilder.start();
-        Thread.sleep(50);
-        Process tryLockWorkerProcess = blockingLockWorker.start();
-        waitForProcesses(blockingWorkerProcess, tryLockWorkerProcess);
+        ProcessHandle blockedP = workerManager
+            .builder()
+            .activateBreakpoint(WorkerBreakpoint.BEFORE_LOCK)
+            .startAndWaitForBreakpoint();
 
-        assertExitCode(blockingWorkerProcess, WorkerExitCode.SUCCESS);
-        assertExitCode(tryLockWorkerProcess, WorkerExitCode.SUCCESS);
+        blockedP.proceed();
+        blockingP.proceed();
+
+        workerManager.await(blockingP, blockedP);
+        workerManager.assertExitCode(WorkerExitCode.SUCCESS, blockingP, blockedP);
     }
 
-    private void waitForProcesses(Process... processes)
-        throws InterruptedException {
-        waitForProcesses(Arrays.asList(processes));
+    @Test
+    public void testAutomaticUnlockWhenProcessIsDestroyed() throws IOException,
+        InterruptedException {
+        ProcessHandle blockingP = workerManager
+            .builder()
+            .activateBreakpoint(WorkerBreakpoint.MUTEX_AREA)
+            .startAndWaitForBreakpoint();
+
+        ProcessHandle blockedP = workerManager
+            .builder()
+            .activateBreakpoint(WorkerBreakpoint.BEFORE_LOCK)
+            .startAndWaitForBreakpoint();
+
+        blockedP.proceed();
+        blockingP.destroy();
+
+        workerManager.await(blockingP, blockedP);
+        workerManager.assertExitCode(WorkerExitCode.SUCCESS, blockedP);
     }
 
-    private void waitForProcesses(List<Process> processes)
-        throws InterruptedException {
-        for (Process process : processes) {
-            process.waitFor();
-        }
+    @Test
+    public void testAutomaticUnlockWhenProcessHaltsItself() throws IOException,
+        InterruptedException {
+        ProcessHandle haltingP = workerManager
+            .builder()
+            .haltInMutexArea(true)
+            .startAndWait();
+
+        ProcessHandle normalP = workerManager
+            .builder()
+            .startAndWait();
+
+        workerManager.assertExitCode(WorkerExitCode.HALT_IN_MUTEX_AREA, haltingP);
+        workerManager.assertExitCode(WorkerExitCode.SUCCESS, normalP);
     }
 
-    private void assertExitCode(List<Process> workerProcesses, WorkerExitCode exitCode) {
-        for (Process workerProcess : workerProcesses) {
-            assertExitCode(workerProcess, exitCode);
-        }
-    }
-
-    private void assertExitCode(Process workerProcess, WorkerExitCode exitCode) {
-        assertEquals(exitCode.getCode(), workerProcess.exitValue());
-    }
-
-    private List<WorkerProcessBuilder> createWorkerBuilders(int count) {
-        List<WorkerProcessBuilder> result = new ArrayList<>(count);
-
-        for (int i = 0; i < count; i++) {
-            result.add(createWorkerBuilder(10));
-        }
-
-        return result;
-    }
-
-    public WorkerProcessBuilder createWorkerBuilder(long workDurationMs) {
-        WorkerProcessBuilder builder = WorkerProcessBuilder.builder(workerId++);
-        builder
-            .workDurationMs(workDurationMs)
-            .signalServerPort(SIGNAL_SERVER_PORT)
-            .resourcePath(sharedResource.getAbsolutePath())
-            .syncFilePath(syncFile.getAbsolutePath())
-            .useLock(true)
-            .tryLock(false);
-
-        return builder;
-    }
-
-    private List<Process> startWorkers(WorkerProcessBuilder... workers)
-        throws IOException {
-        return startWorkers(Arrays.asList(workers));
-    }
-
-    private List<Process> startWorkers(List<WorkerProcessBuilder> workers)
-        throws IOException {
-        List<Process> result = new ArrayList<>(workers.size());
-
-        for (WorkerProcessBuilder worker : workers) {
-            result.add(worker.start());
-        }
-
-        return result;
-    }
-*/
 }

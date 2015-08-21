@@ -34,20 +34,15 @@ public class WorkerManager {
 
     private SignalServer signalServer;
 
-    private File sharedResource;
-
     private File syncFile;
 
     public WorkerManager() {
         workers = Collections.synchronizedMap(new HashMap<Integer, ProcessHandle>());
         signalServer = new SignalServer();
 
-        sharedResource = Paths.get(System.getProperty("java.io.tmpdir"),
-            "ip-lock.shared").toFile();
         syncFile = Paths.get(System.getProperty("java.io.tmpdir"),
             "ip-lock.lock").toFile();
 
-        sharedResource.deleteOnExit();
         syncFile.deleteOnExit();
     }
 
@@ -67,7 +62,6 @@ public class WorkerManager {
             p.kill();
         }
 
-        sharedResource.delete();
         syncFile.delete();
     }
 
@@ -88,7 +82,6 @@ public class WorkerManager {
                 workers.put(p.getId(), p);
             }
         }
-            .sharedResource(sharedResource)
             .syncFile(syncFile);
     }
 

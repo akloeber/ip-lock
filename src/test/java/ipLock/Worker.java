@@ -50,13 +50,9 @@ public class Worker implements SignalHandler {
 
     private CountDownLatch breakpointUnlockSignal;
 
-    private Long workDurationMs;
-
     private Long breakpointTimeoutMs;
 
     private Long workerLockTimeoutMs;
-
-    private File resource;
 
     private File syncFile;
 
@@ -66,6 +62,8 @@ public class Worker implements SignalHandler {
 
     private Boolean skipUnlock;
 
+    private Boolean haltInMutexArea;
+
     private WorkerBreakpoint breakpoint;
 
     private Integer serverPort;
@@ -74,18 +72,17 @@ public class Worker implements SignalHandler {
         id = Integer.valueOf(extractEnv(WorkerEnv.ID));
         MDC.put(MDC_IPL_ID, id.toString());
 
-        workDurationMs = Long.parseLong(extractEnv(WorkerEnv.WORK_DURATION_MS));
         breakpointTimeoutMs = Long.parseLong(extractEnv(WorkerEnv.BREAKPOINT_TIMEOUT_MS));
         workerLockTimeoutMs = Long.parseLong(extractEnv(WorkerEnv.WORKER_LOCK_TIMEOUT_MS));
         /*
          * Shared resource that should be accessed exclusively. For testing a
 		 * simple file is used.
 		 */
-        resource = new File(extractEnv(WorkerEnv.SHARED_RESOURCE_PATH));
         syncFile = new File(extractEnv(WorkerEnv.SYNC_FILE_PATH));
         useLock = Boolean.valueOf(extractEnv(WorkerEnv.USE_LOCK));
         tryLock = Boolean.valueOf(extractEnv(WorkerEnv.TRY_LOCK));
         skipUnlock = Boolean.valueOf(extractEnv(WorkerEnv.SKIP_UNLOCK));
+        haltInMutexArea = Boolean.valueOf(extractEnv(WorkerEnv.HALT_IN_MUTEX_AREA));
         if (hasEnv(WorkerEnv.BREAKPOINT)) {
             activateBreakpoint(WorkerBreakpoint.valueOf(extractEnv(WorkerEnv.BREAKPOINT)));
         }
@@ -124,7 +121,11 @@ public class Worker implements SignalHandler {
     }
 
     private static void exit(WorkerExitCode exitCode) {
-        System.exit(exitCode.getCode());
+        Runtime.getRuntime().exit(exitCode.getCode());
+    }
+
+    private static void halt(WorkerExitCode exitCode) {
+        Runtime.getRuntime().halt(exitCode.getCode());
     }
 
     private void proceed() {
@@ -215,34 +216,24 @@ public class Worker implements SignalHandler {
 
         try {
 
-            if (resource.exists()) {
-                LOGGER.error("shared resource already exists; maybe created by concurrent process?");
-                exit(WorkerExitCode.CONCURRENT_ACCESS_ERROR);
-            }
+            LOGGER.info("entered mutex area");
 
-            LOGGER.info("creating shared resource");
-            boolean createResult = resource.createNewFile();
-            if (!createResult) {
-                LOGGER.error("could not create file; maybe created by concurrent process?");
-                exit(WorkerExitCode.CONCURRENT_ACCESS_ERROR);
+            if (haltInMutexArea) {
+                LOGGER.info("doing halt in mutex area");
+                halt(WorkerExitCode.HALT_IN_MUTEX_AREA);
             }
 
             breakpoint(WorkerBreakpoint.MUTEX_AREA);
 
-            Thread.sleep(workDurationMs);
+            LOGGER.info("leaving mutex area");
 
-            LOGGER.info("deleting shared resource");
-            boolean deleteResult = resource.delete();
-            if (!deleteResult) {
-                LOGGER.error("could not delete file; maybe deleted by concurrent process?");
-                exit(WorkerExitCode.CONCURRENT_ACCESS_ERROR);
-            }
         } finally {
             if (useLock && !skipUnlock) {
                 LOGGER.info("releasing lock");
                 ipLock.unlock();
                 breakpoint(WorkerBreakpoint.AFTER_UNLOCK);
             }
+            LOGGER.info("finished");
         }
     }
 

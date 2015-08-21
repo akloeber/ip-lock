@@ -71,7 +71,7 @@ public class SignalServer {
 
         try {
             channelContextForProcessId(receiverId).writeAndFlush(sig).sync();
-            LOGGER.info("server sent signal: {}", sig);
+            LOGGER.info("server sent signal to process {}: {}", receiverId, sig);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }

@@ -30,13 +30,13 @@ public enum WorkerExitCode {
 
     SUCCESS(0),
 
-    CONCURRENT_ACCESS_ERROR(1),
+    TRY_LOCK_FAILED(1),
 
-    TRY_LOCK_FAILED(2),
+    BREAKPOINT_TIMEOUT(2),
 
-    BREAKPOINT_TIMEOUT(3),
+    WORKER_LOCK_TIMEOUT(3),
 
-    WORKER_LOCK_TIMEOUT(4);
+    HALT_IN_MUTEX_AREA(4);
 
     private static Map<Integer, WorkerExitCode> workerExitCodeMap = new HashMap<>();
 
