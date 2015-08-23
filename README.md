@@ -16,7 +16,27 @@ The library itself does not have any further dependencies apart from JRE 7 or hi
 adding `IpLock`-class to your project.
 
 ## Usage
-TODO: embedd JavaDoc
+This is an example for making a process exclusive on a machine:
+```
+public class ProcessSingleton {
+
+    private static final IpLock LOCK = new IpLock("/tmp/ProcessSingleton.lock");
+
+    public static void main(String[] args) throws Exception {
+        if (!LOCK.tryLock()) {
+            throw new IllegalStateException(
+                "Another instance of this process is already running");
+        }
+
+        try {
+            // do your stuff instead
+            Thread.sleep(5000);
+        } finally {
+            LOCK.unlock();
+        }
+    }
+}
+```
 TODO: provide singleton exmaple on process level
 
 ## Test
