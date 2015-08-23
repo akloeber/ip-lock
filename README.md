@@ -3,7 +3,7 @@
 
 # [IpLock](https://github.com/akloeber/ip-lock)
 
-> An inter-process lock for synchronization of multiple JVM based Java processes running on the same machine.
+> An inter-process lock for synchronization of multiple JVM-based Java processes running on the same machine.
 
 
 ## Overview
@@ -18,10 +18,10 @@
 
 ## Features
 
-*   Acquire lock with optional timeout (blocking)
-*   Try to acquire lock (non-blocking)
+*   Acquire lock with optional timeout (__blocking mode__)
+*   Try to acquire lock (__non-blocking mode__)
 *   Explicitly release lock
-*   Automatically release lock when process finishes, crashes or is killed
+*   Automatically releases lock when process finishes, crashes or is killed
 *   Comprehensive test suite
 
 
@@ -62,7 +62,7 @@ public class ProcessSingleton {
 This libary has been tested on the following platforms:
 
 *   Mac OS X 10.10.5, Oracle JRE 1.7.0_79-b15
-*   Ubuntu 12.04 via Shippable:
+*   Ubuntu 12.04 via [Shippable](https://app.shippable.com/projects/55d775b21895ca44740ee432):
     * OpenJDK 7
     * OpenJDK 8
     * Oracle JDK 7
@@ -77,7 +77,7 @@ mvn test
 
 ## API Documentation
 
-### `public class IpLock`
+#### `public class IpLock`
 
 An inter-process lock for synchronization of multiple JVM based processes running on the same machine.
 <p/>
@@ -88,19 +88,19 @@ This class is thread-safe: multiple threads can share a single {@link IpLock} ob
  * **Author:** Andreas Klöber
  * **See also:** [`java.nio.channels.FileLock`](http://docs.oracle.com/javase/7/docs/api/java/nio/channels/FileLock.html)
 
-### `public IpLock(final File syncFile)`
+##### `public IpLock(final File syncFile)`
 
 Create a new lock object that uses the given file for synchronization. The file will be created if it does not exist.
 
  * **Parameters:** `syncFile` — the file to be used for synchronization
 
-### `public IpLock(final String syncFilePath)`
+##### `public IpLock(final String syncFilePath)`
 
 Create a new lock object that uses the given file for synchronization. The file will be created if it does not exist.
 
  * **Parameters:** `syncFilePath` — path to the file to be used for synchronization
 
-### `public void lock() throws IOException`
+###### `public void lock() throws IOException`
 
 Acquires the lock in a blocking way.
 <p/>
@@ -108,7 +108,7 @@ Only one process can acquire the lock at the same time. This method waits indefi
 
  * **Exceptions:** `IOException` — if the synchronization file could not be created, e.g. because of missing write permissions in target folder
 
-### `public boolean lock(long timeout, long tryLockInterval, TimeUnit timeUnit) throws IOException, InterruptedException`
+###### `public boolean lock(long timeout, long tryLockInterval, TimeUnit timeUnit) throws IOException, InterruptedException`
 
 Acquires the lock in a blocking way.
 <p/>
@@ -125,7 +125,7 @@ As the underlying `FileLock` object does not provide a way to cancel a lock requ
    * `IOException` — if the synchronization file could not be created (e.g. because of missing write permissionsin in target folder) or if some other I/O error occurs on the underlying `FileLock`
    * `InterruptedException` — if the current thread is interrupted while waiting
 
-### `public boolean tryLock() throws IOException`
+###### `public boolean tryLock() throws IOException`
 
 Tries to acquire the lock and returns immediately.
 <p/>
@@ -134,7 +134,7 @@ Only one process can acquire the lock at the same time. The result determines wh
  * **Returns:** <code>true</code> if the lock could be required; <code>false</code> if there was a timeout
  * **Exceptions:** `IOException` — if the synchronization file could not be created (e.g. because of missing write permissions in target folder) or if some other I/O error occurs on the underlying `FileLock`
 
-### `public void unlock() throws IOException`
+###### `public void unlock() throws IOException`
 
 Releases the lock.
 <p/>
