@@ -4,12 +4,20 @@
 
 An inter-process lock for synchronization of multiple JVM based Java processes running on the same machine.
 
+## Features
+*   Acquire lock with optional timeout (blocking)
+*   Try to acquire lock (non-blocking)
+*   Explicitely release lock
+*   Automatically release lock when process finishes, crashes or is killed
+*   Comprehensive test suite
+
 ## Installation
 The library itself does not have any further dependencies apart from JRE 7 or higher, so it can be installed by just
 adding `IpLock`-class to your project.
 
 ## Usage
 TODO: embedd JavaDoc
+TODO: provide singleton exmaple on process level
 
 ## Test
 This libary has been tested on the following platforms:
