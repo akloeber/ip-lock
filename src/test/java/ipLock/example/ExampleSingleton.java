@@ -1,11 +1,13 @@
-package ipLock;
+package ipLock.example;
 
-public class ProcessSingleton {
+import ipLock.IpLock;
 
-    private static final IpLock LOCK = new IpLock("/tmp/ProcessSingleton.lock");
+public class ExampleSingleton {
 
     public static void main(String[] args) throws Exception {
-        if (!LOCK.tryLock()) {
+        IpLock lock = new IpLock("/tmp/ExampleSingleton.lock");
+
+        if (!lock.tryLock()) {
             throw new IllegalStateException(
                 "Another instance of this process is already running");
         }
@@ -14,7 +16,7 @@ public class ProcessSingleton {
             // do your stuff instead
             Thread.sleep(5000);
         } finally {
-            LOCK.unlock();
+            lock.unlock();
         }
     }
 }

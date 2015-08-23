@@ -46,7 +46,7 @@ import java.util.concurrent.TimeUnit;
  * @author Andreas Klöber
  * @see java.nio.channels.FileLock
  */
-public class IpLock {
+public class IpLock implements AutoCloseable {
 
     /*
      * The synchronization file.
@@ -197,5 +197,13 @@ public class IpLock {
 
             this.lock.release();
         }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void close() throws Exception {
+        unlock();
     }
 }

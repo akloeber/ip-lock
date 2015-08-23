@@ -22,6 +22,7 @@
 *   Try to acquire lock (__non-blocking mode__)
 *   Explicitly release lock
 *   Automatically releases lock when process finishes, crashes or is killed
+*   Supports [`java.lang.AutoCloseable`](http://docs.oracle.com/javase/7/docs/api/java/lang/AutoCloseable.html)
 *   Comprehensive test suite
 
 
@@ -36,12 +37,12 @@ adding `IpLock`-class to your project.
 This is an example for making a process exclusive on a machine:
 
 ```java
-public class ProcessSingleton {
-
-    private static final IpLock LOCK = new IpLock("/tmp/ProcessSingleton.lock");
+public class ExampleSingleton {
 
     public static void main(String[] args) throws Exception {
-        if (!LOCK.tryLock()) {
+        IpLock lock = new IpLock("/tmp/ExampleSingleton.lock");
+
+        if (!lock.tryLock()) {
             throw new IllegalStateException(
                 "Another instance of this process is already running");
         }
@@ -50,12 +51,30 @@ public class ProcessSingleton {
             // do your stuff instead
             Thread.sleep(5000);
         } finally {
-            LOCK.unlock();
+            lock.unlock();
         }
     }
 }
 ```
 
+With the use of [`java.lang.AutoCloseable`](http://docs.oracle.com/javase/7/docs/api/java/lang/AutoCloseable.html) this can be simplified to:
+
+```java
+public class ExampleSingletonAutoClosable {
+
+    public static void main(String[] args) throws Exception {
+        try (IpLock lock = new IpLock("/tmp/ExampleSingleton.lock")) {
+            if (!lock.tryLock()) {
+                throw new IllegalStateException(
+                    "Another instance of this process is already running");
+            }
+
+            // do your stuff instead
+            Thread.sleep(5000);
+        }
+    }
+}
+```
 
 ## Test
 
