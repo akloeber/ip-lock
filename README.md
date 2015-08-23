@@ -45,6 +45,25 @@ public class ProcessSingleton {
 }
 ```
 
+
+## Test
+
+This libary has been tested on the following platforms:
+
+*   Mac OS X 10.10.5, Oracle JRE 1.7.0_79-b15
+*   Ubuntu 12.04 via Shippable:
+    * OpenJDK 7
+    * OpenJDK 8
+    * Oracle JDK 7
+    * Oracle JDK 8
+
+For testing it on your platform execute:
+
+```bash
+mvn test
+```
+
+
 ## API Documentation
 
 ### `public class IpLock`
@@ -111,24 +130,6 @@ Releases the lock.
 If the lock has not been acquired before, this method returns immediately.
 
  * **Exceptions:** `IOException` — if some other I/O error occurs on the underlying `FileLock`
-
-## Test
-
-This libary has been tested on the following platforms:
-
-*   Mac OS X 10.10.5, Oracle JRE 1.7.0_79-b15
-*   Ubuntu 12.04 via Shippable:
-    * OpenJDK 7
-    * OpenJDK 8
-    * Oracle JDK 7
-    * Oracle JDK 8
-
-For testing it on your platform execute:
-
-```bash
-mvn test
-```
-
 
 ## License
 
