@@ -1,8 +1,19 @@
 [![Shippable](https://img.shields.io/shippable/54d119db5ab6cc13528ab183.svg)](https://app.shippable.com/projects/55d775b21895ca44740ee432)
 
-# IpLock
 
-An inter-process lock for synchronization of multiple JVM based Java processes running on the same machine.
+# [IpLock](https://github.com/akloeber/ip-lock)
+
+> An inter-process lock for synchronization of multiple JVM based Java processes running on the same machine.
+
+
+## Overview
+
+* [Features](#features)
+* [Installation](#installation)
+* [Usage](#usage)
+* [Test](#test)
+* [API Documentation](#api-documentation)
+* [License](#license)
 
 
 ## Features
