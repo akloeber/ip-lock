@@ -100,7 +100,7 @@ Create a new lock object that uses the given file for synchronization. The file 
 
  * **Parameters:** `syncFilePath` — path to the file to be used for synchronization
 
-###### `public void lock() throws IOException`
+##### `public void lock() throws IOException`
 
 Acquires the lock in a blocking way.
 <p/>
@@ -108,7 +108,7 @@ Only one process can acquire the lock at the same time. This method waits indefi
 
  * **Exceptions:** `IOException` — if the synchronization file could not be created, e.g. because of missing write permissions in target folder
 
-###### `public boolean lock(long timeout, long tryLockInterval, TimeUnit timeUnit) throws IOException, InterruptedException`
+##### `public boolean lock(long timeout, long tryLockInterval, TimeUnit timeUnit) throws IOException, InterruptedException`
 
 Acquires the lock in a blocking way.
 <p/>
@@ -125,7 +125,7 @@ As the underlying `FileLock` object does not provide a way to cancel a lock requ
    * `IOException` — if the synchronization file could not be created (e.g. because of missing write permissionsin in target folder) or if some other I/O error occurs on the underlying `FileLock`
    * `InterruptedException` — if the current thread is interrupted while waiting
 
-###### `public boolean tryLock() throws IOException`
+##### `public boolean tryLock() throws IOException`
 
 Tries to acquire the lock and returns immediately.
 <p/>
@@ -134,7 +134,7 @@ Only one process can acquire the lock at the same time. The result determines wh
  * **Returns:** <code>true</code> if the lock could be required; <code>false</code> if there was a timeout
  * **Exceptions:** `IOException` — if the synchronization file could not be created (e.g. because of missing write permissions in target folder) or if some other I/O error occurs on the underlying `FileLock`
 
-###### `public void unlock() throws IOException`
+##### `public void unlock() throws IOException`
 
 Releases the lock.
 <p/>
