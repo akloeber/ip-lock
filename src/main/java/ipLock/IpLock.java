@@ -48,12 +48,12 @@ import java.util.concurrent.TimeUnit;
  */
 public class IpLock {
 
-    /**
+    /*
      * The synchronization file.
      */
     private File syncFile;
 
-    /**
+    /*
      * The underlying {@link FileLock} object.
      */
     private FileLock lock;
@@ -78,7 +78,7 @@ public class IpLock {
         this(new File(syncFilePath));
     }
 
-    /**
+    /*
      * Creates a synchronization channel based on the given file. If the file does not exist yet, it is also created.
      *
      * @param file the underlying file
@@ -116,7 +116,7 @@ public class IpLock {
      * configuration of a timeout.
      * <p/>
      * As the underlying {@link FileLock} object does not provide a way to cancel a lock request in case of a timeout,
-     * this method periodically tries to get the lock until this is successful ot the timeout limit is reached.
+     * this method periodically tries to get the lock until this is successful or the timeout limit is reached.
      *
      * @param timeout         the timeout limit
      * @param tryLockInterval the time interval for trying locks
