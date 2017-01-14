@@ -1,5 +1,5 @@
 [![Shippable](https://api.shippable.com/projects/55d775b21895ca44740ee432/badge?branch=master)](https://app.shippable.com/projects/55d775b21895ca44740ee432)
-
+[![Shippable](https://api.shippable.com/projects/55d775b21895ca44740ee432/coverageBadge?branch=master)](https://app.shippable.com/projects/55d775b21895ca44740ee432)
 
 # [IpLock](https://github.com/akloeber/ip-lock)
 
