@@ -1,4 +1,4 @@
-[![Shippable](https://img.shields.io/shippable/54d119db5ab6cc13528ab183.svg)](https://app.shippable.com/projects/55d775b21895ca44740ee432)
+[![Shippable](https://api.shippable.com/projects/55d775b21895ca44740ee432/badge?branch=master)](https://app.shippable.com/projects/55d775b21895ca44740ee432)
 
 
 # [IpLock](https://github.com/akloeber/ip-lock)
